@@ -62,7 +62,9 @@ const QuestionManagement = () => {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -201,6 +203,44 @@ const QuestionManagement = () => {
     } catch (error: any) {
       toast.error(error.message || "Failed to delete question");
     }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+
+    try {
+      const { error } = await supabase
+        .from("traffic_law_questions")
+        .delete()
+        .in("id", Array.from(selectedIds));
+
+      if (error) throw error;
+
+      toast.success(`${selectedIds.size} questions deleted successfully`);
+      setIsBulkDeleteOpen(false);
+      setSelectedIds(new Set());
+      fetchQuestions();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete questions");
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === questions.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(questions.map(q => q.id)));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
   };
 
   const handleToggleStatus = async (question: Question) => {
@@ -438,10 +478,29 @@ const QuestionManagement = () => {
         </div>
       </CardHeader>
       <CardContent>
+        {selectedIds.size > 0 && (
+          <div className="mb-4 flex items-center justify-between p-3 bg-muted rounded-lg">
+            <span className="text-sm font-medium">{selectedIds.size} question(s) selected</span>
+            <Button 
+              variant="destructive" 
+              size="sm"
+              onClick={() => setIsBulkDeleteOpen(true)}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete Selected
+            </Button>
+          </div>
+        )}
         <div className="rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12">
+                  <Checkbox 
+                    checked={questions.length > 0 && selectedIds.size === questions.length}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                </TableHead>
                 <TableHead className="w-12">#</TableHead>
                 <TableHead>Question</TableHead>
                 <TableHead className="w-24">Answer</TableHead>
@@ -453,13 +512,19 @@ const QuestionManagement = () => {
             <TableBody>
               {questions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     No questions added yet. Click "Add Question" to create one.
                   </TableCell>
                 </TableRow>
               ) : (
                 questions.map((q, idx) => (
-                  <TableRow key={q.id}>
+                  <TableRow key={q.id} className={selectedIds.has(q.id) ? "bg-muted/50" : ""}>
+                    <TableCell>
+                      <Checkbox 
+                        checked={selectedIds.has(q.id)}
+                        onCheckedChange={() => toggleSelect(q.id)}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">{idx + 1}</TableCell>
                     <TableCell className="max-w-md truncate">{q.question}</TableCell>
                     <TableCell>
@@ -534,6 +599,22 @@ const QuestionManagement = () => {
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>Cancel</Button>
               <Button variant="destructive" onClick={handleDelete}>Delete</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Bulk Delete Dialog */}
+        <Dialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Selected Questions</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete {selectedIds.size} selected question(s)? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsBulkDeleteOpen(false)}>Cancel</Button>
+              <Button variant="destructive" onClick={handleBulkDelete}>Delete {selectedIds.size} Questions</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
