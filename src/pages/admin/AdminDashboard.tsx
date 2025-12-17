@@ -370,12 +370,12 @@ const AdminDashboard = () => {
 
       if (error) throw error;
 
-      toast.success("Data user added successfully");
+      toast.success("Enterprise user added successfully");
       setIsDataUserSheetOpen(false);
       setDataUserForm({ companyName: "", contactPerson: "", phone: "", email: "", address: "", district: "", state: "" });
       fetchData();
     } catch (error: any) {
-      toast.error(error.message || "Failed to add data user");
+      toast.error(error.message || "Failed to add enterprise user");
     }
   };
 
@@ -660,7 +660,7 @@ const AdminDashboard = () => {
             </TabsTrigger>
             <TabsTrigger value="data-users" className="flex items-center gap-2">
               <Briefcase className="w-4 h-4" />
-              <span className="hidden sm:inline">Data Users</span>
+              <span className="hidden sm:inline">Enterprise Users</span>
             </TabsTrigger>
             <TabsTrigger value="applications" className="flex items-center gap-2">
               <FileText className="w-4 h-4" />
@@ -848,22 +848,22 @@ const AdminDashboard = () => {
             </Card>
           </TabsContent>
 
-          {/* Data Users Tab */}
+          {/* Enterprise Users Tab */}
           <TabsContent value="data-users" className="space-y-4">
             <div className="flex justify-end">
               <Button onClick={() => setIsDataUserSheetOpen(true)}>
                 <Plus className="w-4 h-4 mr-2" />
-                Add Data User
+                Add Enterprise User
               </Button>
             </div>
             <Card>
               <CardHeader>
-                <CardTitle>Data Users</CardTitle>
-                <CardDescription>Company Verifiers who can access driver certificates</CardDescription>
+                <CardTitle>Enterprise Users</CardTitle>
+                <CardDescription>Companies and organizations who can verify driver certificates</CardDescription>
               </CardHeader>
               <CardContent>
                 {dataUsers.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-8">No data users added yet.</p>
+                  <p className="text-center text-muted-foreground py-8">No enterprise users added yet.</p>
                 ) : (
                   <Table>
                     <TableHeader>
@@ -1010,7 +1010,7 @@ const AdminDashboard = () => {
                   <div className="p-4 border rounded-lg">
                     <h3 className="font-medium mb-2">Statistics</h3>
                     <p className="text-sm text-muted-foreground">
-                      Clients: {drivers.length} | Partners: {partners.length} | Data Users: {dataUsers.length}
+                      Clients: {drivers.length} | Partners: {partners.length} | Enterprise Users: {dataUsers.length}
                     </p>
                   </div>
                 </div>
@@ -1347,12 +1347,12 @@ const AdminDashboard = () => {
           </SheetContent>
         </Sheet>
 
-        {/* Add Data User Sheet */}
+        {/* Add Enterprise User Sheet */}
         <Sheet open={isDataUserSheetOpen} onOpenChange={setIsDataUserSheetOpen}>
           <SheetContent className="overflow-y-auto">
             <SheetHeader>
-              <SheetTitle>Add Data User</SheetTitle>
-              <SheetDescription>Add a company verifier</SheetDescription>
+              <SheetTitle>Add Enterprise User</SheetTitle>
+              <SheetDescription>Add a company or organization for certificate verification</SheetDescription>
             </SheetHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
@@ -1437,7 +1437,7 @@ const AdminDashboard = () => {
             </div>
             <SheetFooter>
               <Button variant="outline" onClick={() => setIsDataUserSheetOpen(false)}>Cancel</Button>
-              <Button onClick={handleAddDataUser}>Add Data User</Button>
+              <Button onClick={handleAddDataUser}>Add Enterprise User</Button>
             </SheetFooter>
           </SheetContent>
         </Sheet>
@@ -1620,7 +1620,7 @@ const AdminDashboard = () => {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {passwordTargetType === "partner" ? "Set Partner Password" : "Set Data User Password"}
+                {passwordTargetType === "partner" ? "Set Partner Password" : "Set Enterprise User Password"}
               </DialogTitle>
               <DialogDescription>
                 Set login credentials for {passwordTargetType === "partner" ? selectedPartner?.name : selectedDataUser?.company_name}
