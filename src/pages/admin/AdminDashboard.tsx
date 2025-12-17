@@ -1,7 +1,26 @@
+import { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { 
   Users, 
   FileText, 
@@ -12,10 +31,35 @@ import {
   XCircle,
   AlertTriangle,
   ArrowRight,
-  TrendingUp
+  TrendingUp,
+  Stethoscope,
+  GraduationCap
 } from "lucide-react";
+import { toast } from "sonner";
 
 const AdminDashboard = () => {
+  const [isPartnerSheetOpen, setIsPartnerSheetOpen] = useState(false);
+  const [partnerType, setPartnerType] = useState<string>("");
+  const [partnerForm, setPartnerForm] = useState({
+    name: "",
+    address: "",
+    contactNumber: "",
+    gst: "",
+    district: "",
+    state: "",
+  });
+
+  const handlePartnerSubmit = () => {
+    if (!partnerType || !partnerForm.name || !partnerForm.address || !partnerForm.contactNumber || !partnerForm.district || !partnerForm.state) {
+      toast.error("Please fill all required fields");
+      return;
+    }
+    toast.success(`${partnerType === "driving_school" ? "Driving School" : "Medical Lab"} added successfully`);
+    setIsPartnerSheetOpen(false);
+    setPartnerForm({ name: "", address: "", contactNumber: "", gst: "", district: "", state: "" });
+    setPartnerType("");
+  };
+
   const stats = [
     { label: "Total Applications", value: 1247, icon: FileText, change: "+12%", color: "text-primary" },
     { label: "Pending Review", value: 89, icon: Clock, change: "-5%", color: "text-warning" },
@@ -52,10 +96,110 @@ const AdminDashboard = () => {
             <p className="text-muted-foreground">Manage applications, partners, and certificates.</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline">
-              <Building2 className="w-4 h-4 mr-2" />
-              Add Partner
-            </Button>
+            <Sheet open={isPartnerSheetOpen} onOpenChange={setIsPartnerSheetOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline">
+                  <Building2 className="w-4 h-4 mr-2" />
+                  Add Partner
+                </Button>
+              </SheetTrigger>
+              <SheetContent className="overflow-y-auto">
+                <SheetHeader>
+                  <SheetTitle>Add New Partner</SheetTitle>
+                  <SheetDescription>
+                    Register a new Driving School or Medical Lab as a partner.
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="partnerType">Partner Type *</Label>
+                    <Select value={partnerType} onValueChange={setPartnerType}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select partner type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="driving_school">
+                          <div className="flex items-center gap-2">
+                            <GraduationCap className="w-4 h-4" />
+                            Driving School
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="medical_lab">
+                          <div className="flex items-center gap-2">
+                            <Stethoscope className="w-4 h-4" />
+                            Medical Lab
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Name *</Label>
+                    <Input
+                      id="name"
+                      placeholder="Enter partner name"
+                      value={partnerForm.name}
+                      onChange={(e) => setPartnerForm({ ...partnerForm, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="address">Address *</Label>
+                    <Input
+                      id="address"
+                      placeholder="Enter full address"
+                      value={partnerForm.address}
+                      onChange={(e) => setPartnerForm({ ...partnerForm, address: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contactNumber">Contact Number *</Label>
+                    <Input
+                      id="contactNumber"
+                      placeholder="Enter contact number"
+                      value={partnerForm.contactNumber}
+                      onChange={(e) => setPartnerForm({ ...partnerForm, contactNumber: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="gst">GST Number</Label>
+                    <Input
+                      id="gst"
+                      placeholder="Enter GST number (optional)"
+                      value={partnerForm.gst}
+                      onChange={(e) => setPartnerForm({ ...partnerForm, gst: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="district">District *</Label>
+                      <Input
+                        id="district"
+                        placeholder="District"
+                        value={partnerForm.district}
+                        onChange={(e) => setPartnerForm({ ...partnerForm, district: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="state">State *</Label>
+                      <Input
+                        id="state"
+                        placeholder="State"
+                        value={partnerForm.state}
+                        onChange={(e) => setPartnerForm({ ...partnerForm, state: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <SheetFooter>
+                  <Button variant="outline" onClick={() => setIsPartnerSheetOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handlePartnerSubmit}>
+                    Add Partner
+                  </Button>
+                </SheetFooter>
+              </SheetContent>
+            </Sheet>
             <Button>
               <FileText className="w-4 h-4 mr-2" />
               Review Applications
