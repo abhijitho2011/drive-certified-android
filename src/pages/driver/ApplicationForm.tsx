@@ -20,7 +20,13 @@ export interface ApplicationFormData {
   dateOfBirth: string;
   gender: string;
   currentAddress: string;
+  currentState: string;
+  currentDistrict: string;
+  currentPinCode: string;
   permanentAddress: string;
+  permanentState: string;
+  permanentDistrict: string;
+  permanentPinCode: string;
   aadhaarNumber: string;
   // Section 2: Licence Details
   licenceNumber: string;
@@ -31,8 +37,8 @@ export interface ApplicationFormData {
   vehicleClasses: string[];
   hazardousEndorsement: boolean;
   // Section 3: Verification Request
-  certificationVehicleClass: string;
-  certificationPurpose: string;
+  certificationVehicleClasses: string[];
+  certificationPurposes: string[];
   // Section 4: Documents
   documents: {
     licenceFront?: string;
@@ -57,7 +63,13 @@ const initialFormData: ApplicationFormData = {
   dateOfBirth: "",
   gender: "",
   currentAddress: "",
+  currentState: "",
+  currentDistrict: "",
+  currentPinCode: "",
   permanentAddress: "",
+  permanentState: "",
+  permanentDistrict: "",
+  permanentPinCode: "",
   aadhaarNumber: "",
   licenceNumber: "",
   issuingRto: "",
@@ -66,8 +78,8 @@ const initialFormData: ApplicationFormData = {
   licenceType: "",
   vehicleClasses: [],
   hazardousEndorsement: false,
-  certificationVehicleClass: "",
-  certificationPurpose: "",
+  certificationVehicleClasses: [],
+  certificationPurposes: [],
   documents: {},
   declarationSigned: false,
   testState: "",
@@ -148,8 +160,8 @@ const ApplicationForm = () => {
             licenceType: existingApp.licence_type || "",
             vehicleClasses: existingApp.vehicle_classes || [],
             hazardousEndorsement: existingApp.hazardous_endorsement || false,
-            certificationVehicleClass: existingApp.certification_vehicle_class || "",
-            certificationPurpose: existingApp.certification_purpose || "",
+            certificationVehicleClasses: existingApp.certification_vehicle_class ? existingApp.certification_vehicle_class.split(',') : [],
+            certificationPurposes: existingApp.certification_purpose ? existingApp.certification_purpose.split(',') : [],
             documents: (existingApp.documents as ApplicationFormData['documents']) || {},
             declarationSigned: existingApp.declaration_signed || false,
             testState: existingApp.test_state || "",
@@ -200,8 +212,8 @@ const ApplicationForm = () => {
         }
         return true;
       case 3:
-        if (!formData.certificationVehicleClass || !formData.certificationPurpose) {
-          toast.error("Please select certification details");
+        if (formData.certificationVehicleClasses.length === 0 || formData.certificationPurposes.length === 0) {
+          toast.error("Please select at least one vehicle class and purpose");
           return false;
         }
         return true;
@@ -260,8 +272,8 @@ const ApplicationForm = () => {
         licence_type: formData.licenceType,
         vehicle_classes: formData.vehicleClasses,
         hazardous_endorsement: formData.hazardousEndorsement,
-        certification_vehicle_class: formData.certificationVehicleClass,
-        certification_purpose: formData.certificationPurpose,
+        certification_vehicle_class: formData.certificationVehicleClasses.join(','),
+        certification_purpose: formData.certificationPurposes.join(','),
         documents: formData.documents,
         declaration_signed: formData.declarationSigned,
         declaration_date: new Date().toISOString(),

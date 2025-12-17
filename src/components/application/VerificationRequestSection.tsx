@@ -1,5 +1,5 @@
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ApplicationFormData } from "@/pages/driver/ApplicationForm";
 
 interface Props {
@@ -28,6 +28,22 @@ const CERTIFICATION_PURPOSES = [
 ];
 
 const VerificationRequestSection = ({ formData, updateFormData }: Props) => {
+  const toggleVehicleClass = (id: string) => {
+    const current = formData.certificationVehicleClasses || [];
+    const updated = current.includes(id)
+      ? current.filter(v => v !== id)
+      : [...current, id];
+    updateFormData({ certificationVehicleClasses: updated });
+  };
+
+  const togglePurpose = (id: string) => {
+    const current = formData.certificationPurposes || [];
+    const updated = current.includes(id)
+      ? current.filter(p => p !== id)
+      : [...current, id];
+    updateFormData({ certificationPurposes: updated });
+  };
+
   return (
     <div className="space-y-8">
       <div className="space-y-4">
@@ -35,59 +51,59 @@ const VerificationRequestSection = ({ formData, updateFormData }: Props) => {
           Vehicle Class Applying for MOTRACT Certification *
         </Label>
         <p className="text-sm text-muted-foreground">
-          Select one vehicle class for which you want to be certified
+          Select vehicle class(es) for which you want to be certified
         </p>
-        <RadioGroup
-          value={formData.certificationVehicleClass}
-          onValueChange={(value) => updateFormData({ certificationVehicleClass: value })}
-          className="grid grid-cols-1 md:grid-cols-2 gap-3"
-        >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {CERTIFICATION_VEHICLE_CLASSES.map((vc) => (
             <div
               key={vc.id}
               className={`flex items-center space-x-3 p-4 rounded-lg border cursor-pointer transition-colors ${
-                formData.certificationVehicleClass === vc.id
+                formData.certificationVehicleClasses?.includes(vc.id)
                   ? "border-primary bg-primary/5"
                   : "border-border hover:border-primary/50"
               }`}
-              onClick={() => updateFormData({ certificationVehicleClass: vc.id })}
+              onClick={() => toggleVehicleClass(vc.id)}
             >
-              <RadioGroupItem value={vc.id} id={`cert-${vc.id}`} />
+              <Checkbox
+                checked={formData.certificationVehicleClasses?.includes(vc.id)}
+                onCheckedChange={() => toggleVehicleClass(vc.id)}
+                id={`cert-${vc.id}`}
+              />
               <Label htmlFor={`cert-${vc.id}`} className="font-normal cursor-pointer flex-1">
                 {vc.label}
               </Label>
             </div>
           ))}
-        </RadioGroup>
+        </div>
       </div>
 
       <div className="space-y-4">
         <Label className="text-base font-semibold">Purpose of Certification *</Label>
         <p className="text-sm text-muted-foreground">
-          Why are you applying for this certification?
+          Why are you applying for this certification? (Select all that apply)
         </p>
-        <RadioGroup
-          value={formData.certificationPurpose}
-          onValueChange={(value) => updateFormData({ certificationPurpose: value })}
-          className="grid grid-cols-1 md:grid-cols-2 gap-3"
-        >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {CERTIFICATION_PURPOSES.map((purpose) => (
             <div
               key={purpose.id}
               className={`flex items-center space-x-3 p-4 rounded-lg border cursor-pointer transition-colors ${
-                formData.certificationPurpose === purpose.id
+                formData.certificationPurposes?.includes(purpose.id)
                   ? "border-primary bg-primary/5"
                   : "border-border hover:border-primary/50"
               }`}
-              onClick={() => updateFormData({ certificationPurpose: purpose.id })}
+              onClick={() => togglePurpose(purpose.id)}
             >
-              <RadioGroupItem value={purpose.id} id={`purpose-${purpose.id}`} />
+              <Checkbox
+                checked={formData.certificationPurposes?.includes(purpose.id)}
+                onCheckedChange={() => togglePurpose(purpose.id)}
+                id={`purpose-${purpose.id}`}
+              />
               <Label htmlFor={`purpose-${purpose.id}`} className="font-normal cursor-pointer flex-1">
                 {purpose.label}
               </Label>
             </div>
           ))}
-        </RadioGroup>
+        </div>
       </div>
     </div>
   );
