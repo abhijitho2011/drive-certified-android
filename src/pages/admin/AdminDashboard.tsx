@@ -39,6 +39,7 @@ import { toast } from "sonner";
 
 const AdminDashboard = () => {
   const [isPartnerSheetOpen, setIsPartnerSheetOpen] = useState(false);
+  const [isClientsSheetOpen, setIsClientsSheetOpen] = useState(false);
   const [partnerType, setPartnerType] = useState<string>("");
   const [partnerForm, setPartnerForm] = useState({
     name: "",
@@ -59,6 +60,15 @@ const AdminDashboard = () => {
     setPartnerForm({ name: "", address: "", contactNumber: "", gst: "", district: "", state: "" });
     setPartnerType("");
   };
+
+  // Registered drivers (clients)
+  const registeredClients = [
+    { id: 1, name: "Rahul Kumar", email: "rahul.kumar@email.com", phone: "+91 98765 43210", registeredDate: "2024-01-15", status: "active" },
+    { id: 2, name: "Amit Singh", email: "amit.singh@email.com", phone: "+91 87654 32109", registeredDate: "2024-01-14", status: "active" },
+    { id: 3, name: "Priya Sharma", email: "priya.sharma@email.com", phone: "+91 76543 21098", registeredDate: "2024-01-12", status: "active" },
+    { id: 4, name: "Vikram Patel", email: "vikram.patel@email.com", phone: "+91 65432 10987", registeredDate: "2024-01-10", status: "pending" },
+    { id: 5, name: "Neha Gupta", email: "neha.gupta@email.com", phone: "+91 54321 09876", registeredDate: "2024-01-08", status: "active" },
+  ];
 
   const stats = [
     { label: "Total Applications", value: 1247, icon: FileText, change: "+12%", color: "text-primary" },
@@ -96,6 +106,57 @@ const AdminDashboard = () => {
             <p className="text-muted-foreground">Manage applications, partners, and certificates.</p>
           </div>
           <div className="flex gap-2">
+            {/* Clients Sheet */}
+            <Sheet open={isClientsSheetOpen} onOpenChange={setIsClientsSheetOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline">
+                  <Users className="w-4 h-4 mr-2" />
+                  Clients
+                </Button>
+              </SheetTrigger>
+              <SheetContent className="overflow-y-auto sm:max-w-lg">
+                <SheetHeader>
+                  <SheetTitle>Registered Clients</SheetTitle>
+                  <SheetDescription>
+                    All registered drivers appear here automatically.
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="space-y-3 py-4">
+                  {registeredClients.map((client) => (
+                    <div key={client.id} className="p-4 border rounded-lg space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <span className="text-sm font-semibold text-primary">
+                              {client.name.charAt(0)}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="font-medium">{client.name}</p>
+                            <p className="text-xs text-muted-foreground">{client.email}</p>
+                          </div>
+                        </div>
+                        <Badge variant={client.status === "active" ? "approved" : "pending"}>
+                          {client.status}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Phone:</span>
+                          <p className="font-medium">{client.phone}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Registered:</span>
+                          <p className="font-medium">{client.registeredDate}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </SheetContent>
+            </Sheet>
+            
+            {/* Add Partner Sheet */}
             <Sheet open={isPartnerSheetOpen} onOpenChange={setIsPartnerSheetOpen}>
               <SheetTrigger asChild>
                 <Button variant="outline">
