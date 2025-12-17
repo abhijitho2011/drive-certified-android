@@ -36,6 +36,7 @@ export type Database = {
           full_name: string | null
           gender: string | null
           hazardous_endorsement: boolean | null
+          highest_qualification: string | null
           id: string
           identity_verified: boolean | null
           issuing_rto: string | null
@@ -77,6 +78,7 @@ export type Database = {
           full_name?: string | null
           gender?: string | null
           hazardous_endorsement?: boolean | null
+          highest_qualification?: string | null
           id?: string
           identity_verified?: boolean | null
           issuing_rto?: string | null
@@ -118,6 +120,7 @@ export type Database = {
           full_name?: string | null
           gender?: string | null
           hazardous_endorsement?: boolean | null
+          highest_qualification?: string | null
           id?: string
           identity_verified?: boolean | null
           issuing_rto?: string | null
