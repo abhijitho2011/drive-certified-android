@@ -930,23 +930,43 @@ const AdminDashboard = () => {
                   onChange={(e) => setPartnerForm({ ...partnerForm, gst: e.target.value })}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>District *</Label>
-                  <Input
-                    placeholder="District"
-                    value={partnerForm.district}
-                    onChange={(e) => setPartnerForm({ ...partnerForm, district: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>State *</Label>
-                  <Input
-                    placeholder="State"
-                    value={partnerForm.state}
-                    onChange={(e) => setPartnerForm({ ...partnerForm, state: e.target.value })}
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label>State *</Label>
+                <Select 
+                  value={partnerForm.state} 
+                  onValueChange={(value) => setPartnerForm({ ...partnerForm, state: value, district: "" })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select state" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50 max-h-60">
+                    {states.map((state) => (
+                      <SelectItem key={state.id} value={state.name}>{state.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>District *</Label>
+                <Select 
+                  value={partnerForm.district} 
+                  onValueChange={(value) => setPartnerForm({ ...partnerForm, district: value })}
+                  disabled={!partnerForm.state}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={partnerForm.state ? "Select district" : "Select state first"} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50 max-h-60">
+                    {districts
+                      .filter((d) => {
+                        const selectedState = states.find((s) => s.name === partnerForm.state);
+                        return selectedState && d.state_id === selectedState.id;
+                      })
+                      .map((district) => (
+                        <SelectItem key={district.id} value={district.name}>{district.name}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <SheetFooter>
@@ -1005,23 +1025,43 @@ const AdminDashboard = () => {
                   onChange={(e) => setDataUserForm({ ...dataUserForm, address: e.target.value })}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>District</Label>
-                  <Input
-                    placeholder="District"
-                    value={dataUserForm.district}
-                    onChange={(e) => setDataUserForm({ ...dataUserForm, district: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>State</Label>
-                  <Input
-                    placeholder="State"
-                    value={dataUserForm.state}
-                    onChange={(e) => setDataUserForm({ ...dataUserForm, state: e.target.value })}
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label>State</Label>
+                <Select 
+                  value={dataUserForm.state} 
+                  onValueChange={(value) => setDataUserForm({ ...dataUserForm, state: value, district: "" })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select state" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50 max-h-60">
+                    {states.map((state) => (
+                      <SelectItem key={state.id} value={state.name}>{state.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>District</Label>
+                <Select 
+                  value={dataUserForm.district} 
+                  onValueChange={(value) => setDataUserForm({ ...dataUserForm, district: value })}
+                  disabled={!dataUserForm.state}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={dataUserForm.state ? "Select district" : "Select state first"} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50 max-h-60">
+                    {districts
+                      .filter((d) => {
+                        const selectedState = states.find((s) => s.name === dataUserForm.state);
+                        return selectedState && d.state_id === selectedState.id;
+                      })
+                      .map((district) => (
+                        <SelectItem key={district.id} value={district.name}>{district.name}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <SheetFooter>
@@ -1104,21 +1144,43 @@ const AdminDashboard = () => {
                   onChange={(e) => setEditDriverForm({ ...editDriverForm, address: e.target.value })}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>District</Label>
-                  <Input
-                    value={editDriverForm.district}
-                    onChange={(e) => setEditDriverForm({ ...editDriverForm, district: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>State</Label>
-                  <Input
-                    value={editDriverForm.state}
-                    onChange={(e) => setEditDriverForm({ ...editDriverForm, state: e.target.value })}
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label>State</Label>
+                <Select 
+                  value={editDriverForm.state} 
+                  onValueChange={(value) => setEditDriverForm({ ...editDriverForm, state: value, district: "" })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select state" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50 max-h-60">
+                    {states.map((state) => (
+                      <SelectItem key={state.id} value={state.name}>{state.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>District</Label>
+                <Select 
+                  value={editDriverForm.district} 
+                  onValueChange={(value) => setEditDriverForm({ ...editDriverForm, district: value })}
+                  disabled={!editDriverForm.state}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={editDriverForm.state ? "Select district" : "Select state first"} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50 max-h-60">
+                    {districts
+                      .filter((d) => {
+                        const selectedState = states.find((s) => s.name === editDriverForm.state);
+                        return selectedState && d.state_id === selectedState.id;
+                      })
+                      .map((district) => (
+                        <SelectItem key={district.id} value={district.name}>{district.name}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>PIN Code</Label>
