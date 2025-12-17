@@ -9,6 +9,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Verify from "./pages/Verify";
 import DriverDashboard from "./pages/driver/DriverDashboard";
+import ApplicationForm from "./pages/driver/ApplicationForm";
 import DrivingSchoolDashboard from "./pages/driving-school/DrivingSchoolDashboard";
 import MedicalLabDashboard from "./pages/medical-lab/MedicalLabDashboard";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -32,6 +33,7 @@ const App = () => (
             
             {/* Driver Routes */}
             <Route path="/driver" element={<DriverDashboard />} />
+            <Route path="/driver/apply" element={<ApplicationForm />} />
             <Route path="/driver/application" element={<DriverDashboard />} />
             <Route path="/driver/documents" element={<DriverDashboard />} />
             <Route path="/driver/certificates" element={<DriverDashboard />} />
