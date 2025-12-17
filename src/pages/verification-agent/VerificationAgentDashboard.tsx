@@ -58,10 +58,13 @@ const VerificationAgentDashboard = () => {
     
     if (partner) {
       setPartnerData(partner);
-      const { data: apps } = await supabase
+      // Fetch all applications that need education verification
+      const { data: apps, error } = await supabase
         .from("applications")
         .select(`*, drivers:driver_id (first_name, last_name)`)
-        .eq("verification_agent_id", partner.id);
+        .not("highest_qualification", "is", null);
+      
+      console.log("Fetched applications:", apps, error);
       setApplications(apps || []);
     }
     setLoading(false);
