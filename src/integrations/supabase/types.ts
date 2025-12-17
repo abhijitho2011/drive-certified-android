@@ -132,6 +132,41 @@ export type Database = {
         }
         Relationships: []
       }
+      districts: {
+        Row: {
+          code: string | null
+          created_at: string | null
+          id: string
+          name: string
+          state_id: string
+          status: string | null
+        }
+        Insert: {
+          code?: string | null
+          created_at?: string | null
+          id?: string
+          name: string
+          state_id: string
+          status?: string | null
+        }
+        Update: {
+          code?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          state_id?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "districts_state_id_fkey"
+            columns: ["state_id"]
+            isOneToOne: false
+            referencedRelation: "states"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drivers: {
         Row: {
           address: string
@@ -246,6 +281,30 @@ export type Database = {
           last_name?: string | null
           phone?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      states: {
+        Row: {
+          code: string | null
+          created_at: string | null
+          id: string
+          name: string
+          status: string | null
+        }
+        Insert: {
+          code?: string | null
+          created_at?: string | null
+          id?: string
+          name: string
+          status?: string | null
+        }
+        Update: {
+          code?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          status?: string | null
         }
         Relationships: []
       }
