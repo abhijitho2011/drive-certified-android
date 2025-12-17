@@ -18,7 +18,9 @@ export type Database = {
         Row: {
           aadhaar_number: string | null
           admin_approved: boolean | null
+          certificate_expiry_date: string | null
           certificate_number: string | null
+          certificate_status: string | null
           certification_purpose: string | null
           certification_vehicle_class: string | null
           created_at: string | null
@@ -50,6 +52,7 @@ export type Database = {
           medical_validity_date: string | null
           notes: string | null
           permanent_address: string | null
+          renewal_type: string | null
           skill_grade: string | null
           status: string | null
           test_district: string | null
@@ -61,7 +64,9 @@ export type Database = {
         Insert: {
           aadhaar_number?: string | null
           admin_approved?: boolean | null
+          certificate_expiry_date?: string | null
           certificate_number?: string | null
+          certificate_status?: string | null
           certification_purpose?: string | null
           certification_vehicle_class?: string | null
           created_at?: string | null
@@ -93,6 +98,7 @@ export type Database = {
           medical_validity_date?: string | null
           notes?: string | null
           permanent_address?: string | null
+          renewal_type?: string | null
           skill_grade?: string | null
           status?: string | null
           test_district?: string | null
@@ -104,7 +110,9 @@ export type Database = {
         Update: {
           aadhaar_number?: string | null
           admin_approved?: boolean | null
+          certificate_expiry_date?: string | null
           certificate_number?: string | null
+          certificate_status?: string | null
           certification_purpose?: string | null
           certification_vehicle_class?: string | null
           created_at?: string | null
@@ -136,6 +144,7 @@ export type Database = {
           medical_validity_date?: string | null
           notes?: string | null
           permanent_address?: string | null
+          renewal_type?: string | null
           skill_grade?: string | null
           status?: string | null
           test_district?: string | null

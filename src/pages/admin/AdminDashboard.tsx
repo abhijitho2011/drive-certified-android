@@ -122,6 +122,9 @@ interface Application {
   education_verified: boolean;
   admin_approved: boolean;
   certificate_number: string | null;
+  certificate_expiry_date: string | null;
+  certificate_status: string | null;
+  renewal_type: string | null;
   skill_grade: string | null;
   created_at: string;
   full_name: string | null;
@@ -132,6 +135,7 @@ interface Application {
   permanent_address: string | null;
   licence_number: string | null;
   licence_type: string | null;
+  licence_expiry_date: string | null;
   vehicle_classes: string[] | null;
   certification_vehicle_class: string | null;
   certification_purpose: string | null;
