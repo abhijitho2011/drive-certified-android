@@ -412,7 +412,7 @@ const DrivingTestSheet = ({ open, onOpenChange, application, partnerId, onComple
 
       // Update application status
       if (submit) {
-        await supabase
+        const { error: appError } = await supabase
           .from("applications")
           .update({
             identity_verified: isIdentityVerified,
@@ -421,6 +421,11 @@ const DrivingTestSheet = ({ open, onOpenChange, application, partnerId, onComple
             status: isOverallPassed ? "driving_test_completed" : "driving_test_failed",
           })
           .eq("id", application.id);
+        
+        if (appError) {
+          console.error("Failed to update application:", appError);
+          throw appError;
+        }
       }
 
       toast.success(submit ? "Test results submitted" : "Progress saved");
