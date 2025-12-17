@@ -120,19 +120,40 @@ const VerificationAgentDashboard = () => {
     }
 
     const urls: DocumentUrls = {};
-    const docKeys = ['photograph', 'aadhaarId', 'licenceFront', 'licenceBack', 'policeClearance', 'educationCertificate'];
-    
+    const docKeys = [
+      "photograph",
+      "aadhaarId",
+      "licenceFront",
+      "licenceBack",
+      "policeClearance",
+      "educationCertificate",
+    ];
+
+    const errors: string[] = [];
+
     for (const key of docKeys) {
-      if (documents[key]) {
-        const { data } = await supabase.storage
-          .from("application-documents")
-          .createSignedUrl(documents[key], 3600);
-        if (data?.signedUrl) {
-          urls[key as keyof DocumentUrls] = data.signedUrl;
-        }
+      const path = documents?.[key];
+      if (!path) continue;
+
+      const { data, error } = await supabase.storage
+        .from("application-documents")
+        .createSignedUrl(path, 3600);
+
+      if (error) {
+        console.error(`Failed to load ${key} signed URL`, { key, path, error });
+        errors.push(key);
+        continue;
+      }
+
+      if (data?.signedUrl) {
+        urls[key as keyof DocumentUrls] = data.signedUrl;
       }
     }
-    
+
+    if (errors.length) {
+      toast.error(`Unable to load: ${errors.join(", ")}. Check document access policies.`);
+    }
+
     setDocumentUrls(urls);
   };
 
