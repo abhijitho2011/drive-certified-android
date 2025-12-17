@@ -54,6 +54,7 @@ import {
   RefreshCw,
   Map,
   ChevronRight,
+  Ban,
 } from "lucide-react";
 import {
   Accordion,
@@ -63,6 +64,8 @@ import {
 } from "@/components/ui/accordion";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import ClientProfileSheet from "@/components/admin/ClientProfileSheet";
+import ApplicationDetailSheet from "@/components/admin/ApplicationDetailSheet";
 
 interface Driver {
   id: string;
@@ -115,7 +118,22 @@ interface Application {
   education_verified: boolean;
   admin_approved: boolean;
   certificate_number: string | null;
+  skill_grade: string | null;
   created_at: string;
+  full_name: string | null;
+  date_of_birth: string | null;
+  gender: string | null;
+  aadhaar_number: string | null;
+  current_address: string | null;
+  permanent_address: string | null;
+  licence_number: string | null;
+  licence_type: string | null;
+  vehicle_classes: string[] | null;
+  certification_vehicle_class: string | null;
+  certification_purpose: string | null;
+  highest_qualification: string | null;
+  documents: Record<string, string> | null;
+  notes: string | null;
   drivers?: Driver;
 }
 
@@ -150,7 +168,7 @@ const AdminDashboard = () => {
   const [isPartnerSheetOpen, setIsPartnerSheetOpen] = useState(false);
   const [isEditPartnerOpen, setIsEditPartnerOpen] = useState(false);
   const [isDataUserSheetOpen, setIsDataUserSheetOpen] = useState(false);
-  const [isViewDriverOpen, setIsViewDriverOpen] = useState(false);
+  
   const [isEditDriverOpen, setIsEditDriverOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isStateSheetOpen, setIsStateSheetOpen] = useState(false);
@@ -160,6 +178,11 @@ const AdminDashboard = () => {
   const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
   const [selectedStateForDistrict, setSelectedStateForDistrict] = useState<State | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: string; name: string } | null>(null);
+
+  // Client Profile and Application Detail states
+  const [isClientProfileOpen, setIsClientProfileOpen] = useState(false);
+  const [isApplicationDetailOpen, setIsApplicationDetailOpen] = useState(false);
+  const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
 
   // Form states
   const [partnerType, setPartnerType] = useState("");
@@ -369,7 +392,34 @@ const AdminDashboard = () => {
 
   const handleViewDriver = (driver: Driver) => {
     setSelectedDriver(driver);
-    setIsViewDriverOpen(true);
+    setIsClientProfileOpen(true);
+  };
+
+  const handleViewApplication = (application: Application) => {
+    setSelectedApplication(application);
+    setIsApplicationDetailOpen(true);
+  };
+
+  const handleBlacklistPartner = async (partner: Partner) => {
+    const newStatus = partner.status === "blacklisted" ? "active" : "blacklisted";
+    
+    try {
+      const { error } = await supabase
+        .from("partners")
+        .update({ status: newStatus })
+        .eq("id", partner.id);
+
+      if (error) throw error;
+
+      toast.success(
+        newStatus === "blacklisted" 
+          ? "Partner blacklisted successfully" 
+          : "Partner restored successfully"
+      );
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update partner status");
+    }
   };
 
   const handleEditDriver = (driver: Driver) => {
@@ -589,7 +639,15 @@ const AdminDashboard = () => {
                           <TableCell>{driver.district}</TableCell>
                           <TableCell>{driver.state}</TableCell>
                           <TableCell>
-                            <Badge variant={driver.status === "active" ? "approved" : "pending"}>
+                            <Badge 
+                              variant={
+                                driver.status === "active" 
+                                  ? "approved" 
+                                  : driver.status === "blacklisted" 
+                                  ? "rejected" 
+                                  : "pending"
+                              }
+                            >
                               {driver.status}
                             </Badge>
                           </TableCell>
@@ -644,7 +702,7 @@ const AdminDashboard = () => {
                         <TableHead>Name</TableHead>
                         <TableHead>Contact</TableHead>
                         <TableHead>District</TableHead>
-                        <TableHead>GST</TableHead>
+                        <TableHead>Status</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -664,11 +722,32 @@ const AdminDashboard = () => {
                           <TableCell className="font-medium">{partner.name}</TableCell>
                           <TableCell>{partner.contact_number}</TableCell>
                           <TableCell>{partner.district}</TableCell>
-                          <TableCell>{partner.gst || "-"}</TableCell>
+                          <TableCell>
+                            <Badge 
+                              variant={
+                                partner.status === "active" 
+                                  ? "approved" 
+                                  : partner.status === "blacklisted" 
+                                  ? "rejected" 
+                                  : "pending"
+                              }
+                            >
+                              {partner.status}
+                            </Badge>
+                          </TableCell>
                           <TableCell>
                             <div className="flex gap-1">
                               <Button size="icon" variant="ghost" onClick={() => handleEditPartner(partner)}>
                                 <Pencil className="w-4 h-4" />
+                              </Button>
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                className={partner.status === "blacklisted" ? "text-green-600" : "text-orange-500"}
+                                onClick={() => handleBlacklistPartner(partner)}
+                                title={partner.status === "blacklisted" ? "Restore Partner" : "Blacklist Partner"}
+                              >
+                                <Ban className="w-4 h-4" />
                               </Button>
                               <Button 
                                 size="icon" 
@@ -763,42 +842,60 @@ const AdminDashboard = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Driver</TableHead>
+                        <TableHead>Vehicle Class</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Identity</TableHead>
-                        <TableHead>Driving Test</TableHead>
-                        <TableHead>Medical</TableHead>
-                        <TableHead>Education</TableHead>
+                        <TableHead>Verifications</TableHead>
                         <TableHead>Certificate</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {applications.map((app) => (
                         <TableRow key={app.id}>
                           <TableCell className="font-medium">
-                            {app.drivers ? `${app.drivers.first_name} ${app.drivers.last_name}` : "Unknown"}
+                            {app.drivers ? `${app.drivers.first_name} ${app.drivers.last_name}` : app.full_name || "Unknown"}
                           </TableCell>
+                          <TableCell>{app.certification_vehicle_class || "-"}</TableCell>
                           <TableCell>{getStatusBadge(app.status)}</TableCell>
                           <TableCell>
-                            <Badge variant={app.identity_verified ? "approved" : "pending"}>
-                              {app.identity_verified ? "Verified" : "Pending"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={app.driving_test_passed ? "approved" : "pending"}>
-                              {app.driving_test_passed ? "Passed" : "Pending"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={app.medical_test_passed ? "approved" : "pending"}>
-                              {app.medical_test_passed ? "Passed" : "Pending"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={app.education_verified ? "approved" : "pending"}>
-                              {app.education_verified ? "Verified" : "Pending"}
-                            </Badge>
+                            <div className="flex gap-1 flex-wrap">
+                              <Badge 
+                                variant={app.identity_verified ? "approved" : "pending"} 
+                                className="text-xs"
+                              >
+                                ID
+                              </Badge>
+                              <Badge 
+                                variant={app.driving_test_passed ? "approved" : "pending"} 
+                                className="text-xs"
+                              >
+                                Drive
+                              </Badge>
+                              <Badge 
+                                variant={app.medical_test_passed ? "approved" : "pending"} 
+                                className="text-xs"
+                              >
+                                Med
+                              </Badge>
+                              <Badge 
+                                variant={app.education_verified ? "approved" : "pending"} 
+                                className="text-xs"
+                              >
+                                Edu
+                              </Badge>
+                            </div>
                           </TableCell>
                           <TableCell>{app.certificate_number || "-"}</TableCell>
+                          <TableCell>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              onClick={() => handleViewApplication(app)}
+                            >
+                              <Eye className="w-4 h-4 mr-1" />
+                              View
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -1244,48 +1341,22 @@ const AdminDashboard = () => {
           </SheetContent>
         </Sheet>
 
-        {/* View Driver Sheet */}
-        <Sheet open={isViewDriverOpen} onOpenChange={setIsViewDriverOpen}>
-          <SheetContent>
-            <SheetHeader>
-              <SheetTitle>Driver Details</SheetTitle>
-            </SheetHeader>
-            {selectedDriver && (
-              <div className="space-y-4 py-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                    <span className="text-2xl font-bold text-primary">
-                      {selectedDriver.first_name.charAt(0)}
-                    </span>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold">
-                      {selectedDriver.first_name} {selectedDriver.last_name}
-                    </h3>
-                    <Badge variant={selectedDriver.status === "active" ? "approved" : "pending"}>
-                      {selectedDriver.status}
-                    </Badge>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <Phone className="w-4 h-4 text-muted-foreground" />
-                    <span>{selectedDriver.phone}</span>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <MapPin className="w-4 h-4 text-muted-foreground mt-1" />
-                    <div>
-                      <p>{selectedDriver.address}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {selectedDriver.district}, {selectedDriver.state} - {selectedDriver.pin_code}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </SheetContent>
-        </Sheet>
+        {/* Client Profile Sheet */}
+        <ClientProfileSheet
+          open={isClientProfileOpen}
+          onOpenChange={setIsClientProfileOpen}
+          driver={selectedDriver}
+          onViewApplication={handleViewApplication}
+          onRefresh={fetchData}
+        />
+
+        {/* Application Detail Sheet */}
+        <ApplicationDetailSheet
+          open={isApplicationDetailOpen}
+          onOpenChange={setIsApplicationDetailOpen}
+          application={selectedApplication}
+          onRefresh={fetchData}
+        />
 
         {/* Edit Driver Sheet */}
         <Sheet open={isEditDriverOpen} onOpenChange={setIsEditDriverOpen}>
