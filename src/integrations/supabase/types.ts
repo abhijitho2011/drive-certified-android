@@ -960,6 +960,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      enterprise_can_view_driver: {
+        Args: { _driver_id: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
