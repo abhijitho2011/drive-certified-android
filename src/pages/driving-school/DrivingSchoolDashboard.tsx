@@ -3,9 +3,10 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, ClipboardCheck, Clock, CheckCircle2, GraduationCap } from "lucide-react";
+import { Users, ClipboardCheck, Clock, CheckCircle2, XCircle, RotateCcw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import DrivingTestSheet from "@/components/driving-school/DrivingTestSheet";
 
 const DrivingSchoolDashboard = () => {
@@ -15,6 +16,7 @@ const DrivingSchoolDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [selectedApp, setSelectedApp] = useState<any>(null);
   const [isTestOpen, setIsTestOpen] = useState(false);
+  const [retesting, setRetesting] = useState<string | null>(null);
 
   const fetchData = async () => {
     if (!user) return;
@@ -39,14 +41,57 @@ const DrivingSchoolDashboard = () => {
 
   useEffect(() => { fetchData(); }, [user]);
 
-  const pendingTests = applications.filter(app => !app.driving_test_passed);
+  // Pending: not yet tested (no result or status is pending)
+  const pendingTests = applications.filter(app => 
+    !app.driving_test_passed && app.status !== 'driving_test_failed'
+  );
+  // Failed: tested but failed
+  const failedTests = applications.filter(app => 
+    app.status === 'driving_test_failed' || (!app.driving_test_passed && app.skill_grade === 'Fail')
+  );
+  // Passed: completed and passed
   const completedTests = applications.filter(app => app.driving_test_passed);
 
   const stats = [
     { label: "Assigned Drivers", value: applications.length, icon: Users, color: "text-primary" },
     { label: "Tests Completed", value: completedTests.length, icon: ClipboardCheck, color: "text-success" },
     { label: "Pending Tests", value: pendingTests.length, icon: Clock, color: "text-warning" },
+    { label: "Failed Tests", value: failedTests.length, icon: XCircle, color: "text-destructive" },
   ];
+
+  const handleRetest = async (app: any) => {
+    setRetesting(app.id);
+    try {
+      // Delete existing test results for this application
+      await supabase
+        .from("driving_test_results")
+        .delete()
+        .eq("application_id", app.id);
+
+      // Delete existing traffic test session
+      await supabase
+        .from("traffic_test_sessions")
+        .delete()
+        .eq("application_id", app.id);
+
+      // Reset application status
+      await supabase
+        .from("applications")
+        .update({
+          driving_test_passed: false,
+          skill_grade: null,
+          status: 'pending',
+        })
+        .eq("id", app.id);
+
+      toast.success("Ready for retest. Click 'Start Test' to begin.");
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to reset test");
+    } finally {
+      setRetesting(null);
+    }
+  };
 
   return (
     <DashboardLayout role="driving-school" userName={partnerData?.name || "Driving School"}>
@@ -56,7 +101,7 @@ const DrivingSchoolDashboard = () => {
           <p className="text-muted-foreground">Conduct driver skill assessments and evaluations.</p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid md:grid-cols-4 gap-4">
           {stats.map((stat, index) => (
             <Card key={index}>
               <CardContent className="pt-6">
@@ -106,6 +151,52 @@ const DrivingSchoolDashboard = () => {
                       </Badge>
                       <Button size="sm" onClick={() => { setSelectedApp(app); setIsTestOpen(true); }}>
                         Start Test
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Failed Tests Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <XCircle className="w-5 h-5 text-destructive" />
+              Failed Tests
+            </CardTitle>
+            <CardDescription>Drivers who did not pass - eligible for retest</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {failedTests.length === 0 ? (
+              <p className="text-center py-4 text-muted-foreground">No failed tests</p>
+            ) : (
+              <div className="space-y-3">
+                {failedTests.map((app) => (
+                  <div key={app.id} className="flex items-center justify-between p-4 bg-destructive/5 border border-destructive/20 rounded-lg">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center">
+                        <XCircle className="w-5 h-5 text-destructive" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{app.drivers?.first_name} {app.drivers?.last_name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Grade: {app.skill_grade || "Fail"} | Licence: {app.licence_number || "N/A"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Badge variant="destructive">Failed</Badge>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => handleRetest(app)}
+                        disabled={retesting === app.id}
+                      >
+                        <RotateCcw className={`w-4 h-4 mr-2 ${retesting === app.id ? 'animate-spin' : ''}`} />
+                        {retesting === app.id ? 'Resetting...' : 'Retest'}
                       </Button>
                     </div>
                   </div>
