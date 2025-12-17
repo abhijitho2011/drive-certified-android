@@ -52,7 +52,15 @@ import {
   GraduationCap,
   Briefcase,
   RefreshCw,
+  Map,
+  ChevronRight,
 } from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -110,6 +118,23 @@ interface Application {
   drivers?: Driver;
 }
 
+interface State {
+  id: string;
+  name: string;
+  code: string | null;
+  status: string;
+  created_at: string;
+}
+
+interface District {
+  id: string;
+  state_id: string;
+  name: string;
+  code: string | null;
+  status: string;
+  created_at: string;
+}
+
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("clients");
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -117,6 +142,8 @@ const AdminDashboard = () => {
   const [dataUsers, setDataUsers] = useState<DataUser[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
+  const [states, setStates] = useState<State[]>([]);
+  const [districts, setDistricts] = useState<District[]>([]);
 
   // Sheet states
   const [isPartnerSheetOpen, setIsPartnerSheetOpen] = useState(false);
@@ -124,8 +151,11 @@ const AdminDashboard = () => {
   const [isViewDriverOpen, setIsViewDriverOpen] = useState(false);
   const [isEditDriverOpen, setIsEditDriverOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isStateSheetOpen, setIsStateSheetOpen] = useState(false);
+  const [isDistrictSheetOpen, setIsDistrictSheetOpen] = useState(false);
   
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
+  const [selectedStateForDistrict, setSelectedStateForDistrict] = useState<State | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: string; name: string } | null>(null);
 
   // Form states
@@ -159,6 +189,9 @@ const AdminDashboard = () => {
     phone: "",
   });
 
+  const [stateForm, setStateForm] = useState({ name: "", code: "" });
+  const [districtForm, setDistrictForm] = useState({ name: "", code: "" });
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -166,17 +199,21 @@ const AdminDashboard = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [driversRes, partnersRes, dataUsersRes, applicationsRes] = await Promise.all([
+      const [driversRes, partnersRes, dataUsersRes, applicationsRes, statesRes, districtsRes] = await Promise.all([
         supabase.from("drivers").select("*").order("created_at", { ascending: false }),
         supabase.from("partners").select("*").order("created_at", { ascending: false }),
         supabase.from("data_users").select("*").order("created_at", { ascending: false }),
         supabase.from("applications").select("*, drivers(*)").order("created_at", { ascending: false }),
+        supabase.from("states").select("*").order("name", { ascending: true }),
+        supabase.from("districts").select("*").order("name", { ascending: true }),
       ]);
 
       if (driversRes.data) setDrivers(driversRes.data);
       if (partnersRes.data) setPartners(partnersRes.data);
       if (dataUsersRes.data) setDataUsers(dataUsersRes.data);
       if (applicationsRes.data) setApplications(applicationsRes.data as Application[]);
+      if (statesRes.data) setStates(statesRes.data);
+      if (districtsRes.data) setDistricts(districtsRes.data);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error("Failed to fetch data");
@@ -329,6 +366,12 @@ const AdminDashboard = () => {
         case "data_user":
           ({ error } = await supabase.from("data_users").delete().eq("id", deleteTarget.id));
           break;
+        case "state":
+          ({ error } = await supabase.from("states").delete().eq("id", deleteTarget.id));
+          break;
+        case "district":
+          ({ error } = await supabase.from("districts").delete().eq("id", deleteTarget.id));
+          break;
       }
 
       if (error) throw error;
@@ -345,6 +388,58 @@ const AdminDashboard = () => {
   const openDeleteDialog = (type: string, id: string, name: string) => {
     setDeleteTarget({ type, id, name });
     setIsDeleteDialogOpen(true);
+  };
+
+  // State management
+  const handleAddState = async () => {
+    if (!stateForm.name) {
+      toast.error("Please enter state name");
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from("states").insert({
+        name: stateForm.name,
+        code: stateForm.code || null,
+      });
+
+      if (error) throw error;
+
+      toast.success("State added successfully");
+      setIsStateSheetOpen(false);
+      setStateForm({ name: "", code: "" });
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to add state");
+    }
+  };
+
+  const handleAddDistrict = async () => {
+    if (!districtForm.name || !selectedStateForDistrict) {
+      toast.error("Please enter district name");
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from("districts").insert({
+        state_id: selectedStateForDistrict.id,
+        name: districtForm.name,
+        code: districtForm.code || null,
+      });
+
+      if (error) throw error;
+
+      toast.success("District added successfully");
+      setIsDistrictSheetOpen(false);
+      setDistrictForm({ name: "", code: "" });
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to add district");
+    }
+  };
+
+  const getDistrictsForState = (stateId: string) => {
+    return districts.filter(d => d.state_id === stateId);
   };
 
   const getStatusBadge = (status: string) => {
@@ -648,27 +743,126 @@ const AdminDashboard = () => {
 
           {/* Settings Tab */}
           <TabsContent value="settings" className="space-y-4">
+            {/* System Info Card */}
             <Card>
               <CardHeader>
-                <CardTitle>Admin Settings</CardTitle>
-                <CardDescription>Configure system settings</CardDescription>
+                <CardTitle>System Information</CardTitle>
+                <CardDescription>Admin settings and overview</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
                   <div className="p-4 border rounded-lg">
                     <h3 className="font-medium mb-2">Admin Phone Number</h3>
                     <p className="text-muted-foreground">+91 9895077492</p>
                   </div>
                   <div className="p-4 border rounded-lg">
-                    <h3 className="font-medium mb-2">System Information</h3>
+                    <h3 className="font-medium mb-2">Statistics</h3>
                     <p className="text-sm text-muted-foreground">
-                      Total Clients: {drivers.length}<br />
-                      Total Partners: {partners.length}<br />
-                      Total Data Users: {dataUsers.length}<br />
-                      Total Applications: {applications.length}
+                      Clients: {drivers.length} | Partners: {partners.length} | Data Users: {dataUsers.length}
                     </p>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* States & Districts Card */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Map className="w-5 h-5" />
+                      States & Districts
+                    </CardTitle>
+                    <CardDescription>Manage states and their districts</CardDescription>
+                  </div>
+                  <Button onClick={() => setIsStateSheetOpen(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add State
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {states.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">No states added yet. Add a state to get started.</p>
+                ) : (
+                  <Accordion type="single" collapsible className="w-full">
+                    {states.map((state) => (
+                      <AccordionItem key={state.id} value={state.id}>
+                        <AccordionTrigger className="hover:no-underline">
+                          <div className="flex items-center justify-between w-full pr-4">
+                            <div className="flex items-center gap-2">
+                              <MapPin className="w-4 h-4 text-primary" />
+                              <span className="font-medium">{state.name}</span>
+                              {state.code && (
+                                <Badge variant="outline" className="ml-2">{state.code}</Badge>
+                              )}
+                            </div>
+                            <Badge variant="secondary">
+                              {getDistrictsForState(state.id).length} districts
+                            </Badge>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="pl-6 space-y-3">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-muted-foreground">Districts in {state.name}</span>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedStateForDistrict(state);
+                                    setIsDistrictSheetOpen(true);
+                                  }}
+                                >
+                                  <Plus className="w-3 h-3 mr-1" />
+                                  Add District
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-destructive"
+                                  onClick={() => openDeleteDialog("state", state.id, state.name)}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </div>
+                            {getDistrictsForState(state.id).length === 0 ? (
+                              <p className="text-sm text-muted-foreground py-2">No districts added yet.</p>
+                            ) : (
+                              <div className="grid gap-2">
+                                {getDistrictsForState(state.id).map((district) => (
+                                  <div
+                                    key={district.id}
+                                    className="flex items-center justify-between p-2 bg-muted/50 rounded-md"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <ChevronRight className="w-3 h-3 text-muted-foreground" />
+                                      <span>{district.name}</span>
+                                      {district.code && (
+                                        <Badge variant="outline" className="text-xs">{district.code}</Badge>
+                                      )}
+                                    </div>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-6 w-6 text-destructive"
+                                      onClick={() => openDeleteDialog("district", district.id, district.name)}
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -944,6 +1138,72 @@ const AdminDashboard = () => {
             <SheetFooter>
               <Button variant="outline" onClick={() => setIsEditDriverOpen(false)}>Cancel</Button>
               <Button onClick={handleSaveDriverEdit}>Save Changes</Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
+
+        {/* Add State Sheet */}
+        <Sheet open={isStateSheetOpen} onOpenChange={setIsStateSheetOpen}>
+          <SheetContent>
+            <SheetHeader>
+              <SheetTitle>Add New State</SheetTitle>
+              <SheetDescription>Add a state to the system</SheetDescription>
+            </SheetHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>State Name *</Label>
+                <Input
+                  placeholder="Enter state name"
+                  value={stateForm.name}
+                  onChange={(e) => setStateForm({ ...stateForm, name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>State Code</Label>
+                <Input
+                  placeholder="e.g., KL, TN, MH (optional)"
+                  value={stateForm.code}
+                  onChange={(e) => setStateForm({ ...stateForm, code: e.target.value })}
+                />
+              </div>
+            </div>
+            <SheetFooter>
+              <Button variant="outline" onClick={() => setIsStateSheetOpen(false)}>Cancel</Button>
+              <Button onClick={handleAddState}>Add State</Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
+
+        {/* Add District Sheet */}
+        <Sheet open={isDistrictSheetOpen} onOpenChange={setIsDistrictSheetOpen}>
+          <SheetContent>
+            <SheetHeader>
+              <SheetTitle>Add District</SheetTitle>
+              <SheetDescription>
+                Add a district to {selectedStateForDistrict?.name}
+              </SheetDescription>
+            </SheetHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>District Name *</Label>
+                <Input
+                  placeholder="Enter district name"
+                  value={districtForm.name}
+                  onChange={(e) => setDistrictForm({ ...districtForm, name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>District Code</Label>
+                <Input
+                  placeholder="Optional code"
+                  value={districtForm.code}
+                  onChange={(e) => setDistrictForm({ ...districtForm, code: e.target.value })}
+                />
+              </div>
+            </div>
+            <SheetFooter>
+              <Button variant="outline" onClick={() => setIsDistrictSheetOpen(false)}>Cancel</Button>
+              <Button onClick={handleAddDistrict}>Add District</Button>
             </SheetFooter>
           </SheetContent>
         </Sheet>
