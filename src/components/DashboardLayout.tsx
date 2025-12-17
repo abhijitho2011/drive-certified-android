@@ -16,6 +16,7 @@ import {
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -91,10 +92,13 @@ const DashboardLayout = ({ children, role, userName = "User" }: DashboardLayoutP
           {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
         <img src={motractLogo} alt="MOTRACT" className="h-8 mx-auto rounded" />
-        <button className="p-2 hover:bg-muted rounded-lg relative">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full"></span>
-        </button>
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <button className="p-2 hover:bg-muted rounded-lg relative">
+            <Bell className="w-5 h-5" />
+            <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full"></span>
+          </button>
+        </div>
       </header>
 
       {/* Sidebar */}
@@ -176,6 +180,7 @@ const DashboardLayout = ({ children, role, userName = "User" }: DashboardLayoutP
         <header className="hidden lg:flex items-center justify-between h-16 px-6 border-b border-border bg-background">
           <h1 className="text-lg font-semibold">{config.title}</h1>
           <div className="flex items-center gap-4">
+            <ThemeToggle />
             <button className="p-2 hover:bg-muted rounded-lg relative">
               <Bell className="w-5 h-5" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full"></span>
