@@ -55,6 +55,7 @@ import {
   Map,
   ChevronRight,
   Ban,
+  Key,
 } from "lucide-react";
 import {
   Accordion,
@@ -66,6 +67,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ClientProfileSheet from "@/components/admin/ClientProfileSheet";
 import ApplicationDetailSheet from "@/components/admin/ApplicationDetailSheet";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface Driver {
   id: string;
@@ -228,6 +230,11 @@ const AdminDashboard = () => {
     district: "",
     state: "",
   });
+
+  // Password dialog state
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ email: "", password: "", confirmPassword: "" });
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -422,6 +429,65 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleSetPassword = (partner: Partner) => {
+    setSelectedPartner(partner);
+    setPasswordForm({ email: partner.email || "", password: "", confirmPassword: "" });
+    setIsPasswordDialogOpen(true);
+  };
+
+  const handleSavePassword = async () => {
+    if (!selectedPartner) return;
+    
+    if (!passwordForm.email || !passwordForm.password) {
+      toast.error("Email and password are required");
+      return;
+    }
+    
+    if (passwordForm.password !== passwordForm.confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    
+    if (passwordForm.password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("Not authenticated");
+        return;
+      }
+
+      const response = await supabase.functions.invoke("set-partner-password", {
+        body: {
+          partnerId: selectedPartner.id,
+          email: passwordForm.email,
+          password: passwordForm.password,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || "Failed to set password");
+      }
+
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
+
+      toast.success(response.data?.message || "Password set successfully");
+      setIsPasswordDialogOpen(false);
+      setPasswordForm({ email: "", password: "", confirmPassword: "" });
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to set password");
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
   const handleEditDriver = (driver: Driver) => {
     setSelectedDriver(driver);
     setEditDriverForm({
@@ -576,10 +642,13 @@ const AdminDashboard = () => {
             <h1 className="text-2xl font-bold">Admin Dashboard</h1>
             <p className="text-muted-foreground">Manage clients, partners, and applications.</p>
           </div>
-          <Button variant="outline" onClick={fetchData} disabled={loading}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Button variant="outline" onClick={fetchData} disabled={loading}>
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {/* Main Tabs */}
@@ -739,6 +808,15 @@ const AdminDashboard = () => {
                             <div className="flex gap-1">
                               <Button size="icon" variant="ghost" onClick={() => handleEditPartner(partner)}>
                                 <Pencil className="w-4 h-4" />
+                              </Button>
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                className="text-blue-600"
+                                onClick={() => handleSetPassword(partner)}
+                                title="Set Password"
+                              >
+                                <Key className="w-4 h-4" />
                               </Button>
                               <Button 
                                 size="icon" 
@@ -1513,6 +1591,53 @@ const AdminDashboard = () => {
             </SheetFooter>
           </SheetContent>
         </Sheet>
+
+        {/* Password Dialog */}
+        <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Set Partner Password</DialogTitle>
+              <DialogDescription>
+                Set login credentials for {selectedPartner?.name}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Email *</Label>
+                <Input
+                  type="email"
+                  placeholder="Enter email"
+                  value={passwordForm.email}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, email: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Password *</Label>
+                <Input
+                  type="password"
+                  placeholder="Enter password (min 6 characters)"
+                  value={passwordForm.password}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, password: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Confirm Password *</Label>
+                <Input
+                  type="password"
+                  placeholder="Confirm password"
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsPasswordDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleSavePassword} disabled={passwordLoading}>
+                {passwordLoading ? "Setting..." : "Set Password"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Delete Confirmation Dialog */}
         <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
