@@ -84,6 +84,7 @@ interface Partner {
   name: string;
   address: string;
   contact_number: string;
+  email: string | null;
   gst: string | null;
   district: string;
   state: string;
@@ -166,6 +167,7 @@ const AdminDashboard = () => {
     name: "",
     address: "",
     contactNumber: "",
+    email: "",
     gst: "",
     district: "",
     state: "",
@@ -198,6 +200,7 @@ const AdminDashboard = () => {
     name: "",
     address: "",
     contactNumber: "",
+    email: "",
     gst: "",
     district: "",
     state: "",
@@ -253,6 +256,7 @@ const AdminDashboard = () => {
           name: partnerForm.name,
           address: partnerForm.address,
           contact_number: partnerForm.contactNumber,
+          email: partnerForm.email || null,
           gst: partnerForm.gst || null,
           district: partnerForm.district,
           state: partnerForm.state,
@@ -272,6 +276,7 @@ const AdminDashboard = () => {
           name: partnerForm.name,
           address: partnerForm.address,
           contact_number: partnerForm.contactNumber,
+          email: partnerForm.email || null,
           gst: partnerForm.gst || null,
           district: partnerForm.district,
           state: partnerForm.state,
@@ -280,7 +285,7 @@ const AdminDashboard = () => {
 
       toast.success("Partner added successfully");
       setIsPartnerSheetOpen(false);
-      setPartnerForm({ name: "", address: "", contactNumber: "", gst: "", district: "", state: "" });
+      setPartnerForm({ name: "", address: "", contactNumber: "", email: "", gst: "", district: "", state: "" });
       setPartnerType("");
       fetchData();
     } catch (error: any) {
@@ -294,6 +299,7 @@ const AdminDashboard = () => {
       name: partner.name,
       address: partner.address,
       contactNumber: partner.contact_number,
+      email: partner.email || "",
       gst: partner.gst || "",
       district: partner.district,
       state: partner.state,
@@ -316,6 +322,7 @@ const AdminDashboard = () => {
           name: editPartnerForm.name,
           address: editPartnerForm.address,
           contact_number: editPartnerForm.contactNumber,
+          email: editPartnerForm.email || null,
           gst: editPartnerForm.gst || null,
           district: editPartnerForm.district,
           state: editPartnerForm.state,
@@ -983,6 +990,15 @@ const AdminDashboard = () => {
                 />
               </div>
               <div className="space-y-2">
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  placeholder="Enter email (optional)"
+                  value={partnerForm.email}
+                  onChange={(e) => setPartnerForm({ ...partnerForm, email: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
                 <Label>GST Number</Label>
                 <Input
                   placeholder="Enter GST (optional)"
@@ -1068,6 +1084,15 @@ const AdminDashboard = () => {
                   placeholder="Enter contact number"
                   value={editPartnerForm.contactNumber}
                   onChange={(e) => setEditPartnerForm({ ...editPartnerForm, contactNumber: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  placeholder="Enter email (optional)"
+                  value={editPartnerForm.email}
+                  onChange={(e) => setEditPartnerForm({ ...editPartnerForm, email: e.target.value })}
                 />
               </div>
               <div className="space-y-2">

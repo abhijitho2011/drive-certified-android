@@ -293,6 +293,7 @@ export type Database = {
           contact_number: string
           created_at: string | null
           district: string
+          email: string | null
           gst: string | null
           id: string
           name: string
@@ -307,6 +308,7 @@ export type Database = {
           contact_number: string
           created_at?: string | null
           district: string
+          email?: string | null
           gst?: string | null
           id?: string
           name: string
@@ -321,6 +323,7 @@ export type Database = {
           contact_number?: string
           created_at?: string | null
           district?: string
+          email?: string | null
           gst?: string | null
           id?: string
           name?: string
