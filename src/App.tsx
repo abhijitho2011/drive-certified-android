@@ -16,6 +16,7 @@ import DrivingSchoolDashboard from "./pages/driving-school/DrivingSchoolDashboar
 import MedicalLabDashboard from "./pages/medical-lab/MedicalLabDashboard";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import CompanyDashboard from "./pages/company/CompanyDashboard";
+import TrafficTestPortal from "./pages/TrafficTestPortal";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -61,6 +62,9 @@ const App = () => (
             <Route path="/company" element={<CompanyDashboard />} />
             <Route path="/company/verifications" element={<CompanyDashboard />} />
             <Route path="/company/reports" element={<CompanyDashboard />} />
+            
+            {/* Traffic Test Portal - Public Route */}
+            <Route path="/traffic-test" element={<TrafficTestPortal />} />
             
           <Route path="*" element={<NotFound />} />
           </Routes>

@@ -698,6 +698,66 @@ export type Database = {
         }
         Relationships: []
       }
+      traffic_test_sessions: {
+        Row: {
+          answers: Json | null
+          application_id: string
+          completed_at: string | null
+          created_at: string
+          driving_school_id: string
+          id: string
+          score: number | null
+          secret_key: string
+          started_at: string | null
+          status: string | null
+          test_user_id: string
+          total_questions: number | null
+        }
+        Insert: {
+          answers?: Json | null
+          application_id: string
+          completed_at?: string | null
+          created_at?: string
+          driving_school_id: string
+          id?: string
+          score?: number | null
+          secret_key: string
+          started_at?: string | null
+          status?: string | null
+          test_user_id: string
+          total_questions?: number | null
+        }
+        Update: {
+          answers?: Json | null
+          application_id?: string
+          completed_at?: string | null
+          created_at?: string
+          driving_school_id?: string
+          id?: string
+          score?: number | null
+          secret_key?: string
+          started_at?: string | null
+          status?: string | null
+          test_user_id?: string
+          total_questions?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "traffic_test_sessions_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "traffic_test_sessions_driving_school_id_fkey"
+            columns: ["driving_school_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string

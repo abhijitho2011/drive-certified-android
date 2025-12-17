@@ -29,6 +29,10 @@ import {
   Wrench,
   AlertTriangle,
   ClipboardCheck,
+  Key,
+  Copy,
+  RefreshCw,
+  ExternalLink,
 } from "lucide-react";
 
 interface Application {
@@ -91,12 +95,23 @@ interface TestResults {
   tested_by: string;
 }
 
+interface TrafficSession {
+  id: string;
+  test_user_id: string;
+  secret_key: string;
+  status: string;
+  score: number | null;
+  completed_at: string | null;
+}
+
 const DrivingTestSheet = ({ open, onOpenChange, application, partnerId, onComplete }: DrivingTestSheetProps) => {
   const [activeTab, setActiveTab] = useState("identity");
   const [questions, setQuestions] = useState<TrafficQuestion[]>([]);
   const [existingResults, setExistingResults] = useState<any>(null);
+  const [trafficSession, setTrafficSession] = useState<TrafficSession | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [generatingCredentials, setGeneratingCredentials] = useState(false);
   
   const [results, setResults] = useState<TestResults>({
     identity_photo_match: false,
@@ -124,8 +139,51 @@ const DrivingTestSheet = ({ open, onOpenChange, application, partnerId, onComple
     if (open && application) {
       fetchQuestions();
       fetchExistingResults();
+      fetchTrafficSession();
     }
   }, [open, application]);
+
+  // Realtime subscription for traffic test results
+  useEffect(() => {
+    if (!application || !trafficSession) return;
+
+    const channel = supabase
+      .channel(`traffic-session-${trafficSession.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'traffic_test_sessions',
+          filter: `id=eq.${trafficSession.id}`,
+        },
+        (payload) => {
+          const updated = payload.new as any;
+          setTrafficSession({
+            id: updated.id,
+            test_user_id: updated.test_user_id,
+            secret_key: updated.secret_key,
+            status: updated.status,
+            score: updated.score,
+            completed_at: updated.completed_at,
+          });
+          
+          // Update results with traffic score
+          if (updated.status === 'completed' && updated.score !== null) {
+            setResults(prev => ({
+              ...prev,
+              traffic_test_score: updated.score,
+            }));
+            toast.success(`Traffic test completed! Score: ${updated.score}/20`);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [application, trafficSession?.id]);
 
   const fetchQuestions = async () => {
     const { data } = await supabase
@@ -175,7 +233,86 @@ const DrivingTestSheet = ({ open, onOpenChange, application, partnerId, onComple
     }
   };
 
+  const fetchTrafficSession = async () => {
+    if (!application) return;
+
+    const { data } = await supabase
+      .from("traffic_test_sessions")
+      .select("*")
+      .eq("application_id", application.id)
+      .maybeSingle();
+
+    if (data) {
+      setTrafficSession({
+        id: data.id,
+        test_user_id: data.test_user_id,
+        secret_key: data.secret_key,
+        status: data.status || 'pending',
+        score: data.score,
+        completed_at: data.completed_at,
+      });
+      
+      // If session completed, update traffic score
+      if (data.status === 'completed' && data.score !== null) {
+        setResults(prev => ({
+          ...prev,
+          traffic_test_score: data.score,
+        }));
+      }
+    }
+  };
+
+  const generateCredentials = async () => {
+    if (!application) return;
+
+    setGeneratingCredentials(true);
+    try {
+      // Generate random credentials
+      const testUserId = `DRV${Date.now().toString(36).toUpperCase()}`;
+      const secretKey = Math.random().toString(36).substring(2, 10).toUpperCase();
+
+      const { data, error } = await supabase
+        .from("traffic_test_sessions")
+        .insert({
+          application_id: application.id,
+          driving_school_id: partnerId,
+          test_user_id: testUserId,
+          secret_key: secretKey,
+          status: 'pending',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setTrafficSession({
+        id: data.id,
+        test_user_id: data.test_user_id,
+        secret_key: data.secret_key,
+        status: data.status || 'pending',
+        score: data.score,
+        completed_at: data.completed_at,
+      });
+
+      toast.success("Credentials generated successfully!");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to generate credentials");
+    } finally {
+      setGeneratingCredentials(false);
+    }
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied to clipboard`);
+  };
+
   const calculateTrafficScore = () => {
+    // Use session score if available (from traffic portal)
+    if (trafficSession?.status === 'completed' && trafficSession.score !== null) {
+      return trafficSession.score;
+    }
+    // Fallback to manual calculation (legacy)
     let score = 0;
     questions.forEach((q) => {
       if (results.traffic_test_answers[q.id] === q.correct_answer) {
@@ -210,7 +347,7 @@ const DrivingTestSheet = ({ open, onOpenChange, application, partnerId, onComple
   };
 
   const isIdentityVerified = results.identity_photo_match && results.licence_verified && results.police_clearance_verified;
-  const isTrafficPassed = trafficScore >= 12;
+  const isTrafficPassed = trafficScore >= 12 || (trafficSession?.status === 'completed' && (trafficSession.score || 0) >= 12);
   const isPracticalPassed = practicalTotal >= 40;
   const isInspectionPassed = inspectionTotal >= 12;
   const isOverallPassed = isIdentityVerified && isTrafficPassed && isPracticalPassed && isInspectionPassed && totalScore >= 60;
@@ -460,53 +597,126 @@ const DrivingTestSheet = ({ open, onOpenChange, application, partnerId, onComple
           <TabsContent value="traffic">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Computerized Traffic Law Test</CardTitle>
-                <CardDescription>25 MCQs - Minimum 12/20 points to pass</CardDescription>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Key className="w-5 h-5" />
+                  Computerized Traffic Law Test
+                </CardTitle>
+                <CardDescription>
+                  Generate credentials for the driver to take the test on the Traffic Test Portal
+                </CardDescription>
               </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[400px] pr-4">
-                  {questions.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <AlertTriangle className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                      <p>No questions available</p>
-                      <p className="text-sm">Admin needs to add traffic law questions</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      {questions.map((q, idx) => (
-                        <div key={q.id} className="p-4 bg-muted/50 rounded-lg">
-                          <p className="font-medium mb-3">
-                            {idx + 1}. {q.question}
-                          </p>
-                          <RadioGroup
-                            value={results.traffic_test_answers[q.id] || ""}
-                            onValueChange={(value) =>
-                              setResults({
-                                ...results,
-                                traffic_test_answers: {
-                                  ...results.traffic_test_answers,
-                                  [q.id]: value,
-                                },
-                              })
-                            }
-                            disabled={isSubmitted}
-                          >
-                            <div className="space-y-2">
-                              {["A", "B", "C", "D"].map((opt) => (
-                                <div key={opt} className="flex items-center space-x-2">
-                                  <RadioGroupItem value={opt} id={`${q.id}-${opt}`} />
-                                  <Label htmlFor={`${q.id}-${opt}`}>
-                                    {opt}. {q[`option_${opt.toLowerCase()}` as keyof TrafficQuestion]}
-                                  </Label>
-                                </div>
-                              ))}
-                            </div>
-                          </RadioGroup>
+              <CardContent className="space-y-6">
+                {!trafficSession ? (
+                  <div className="text-center py-8">
+                    <FileText className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground mb-4">
+                      No test credentials generated yet
+                    </p>
+                    <Button onClick={generateCredentials} disabled={generatingCredentials}>
+                      {generatingCredentials ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Key className="w-4 h-4 mr-2" />
+                          Generate Test Credentials
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Credentials Display */}
+                    <div className="p-4 bg-muted rounded-lg space-y-4">
+                      <h4 className="font-medium text-sm text-muted-foreground">TEST CREDENTIALS</h4>
+                      
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-muted-foreground">User ID</p>
+                          <p className="font-mono text-lg font-bold">{trafficSession.test_user_id}</p>
                         </div>
-                      ))}
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => copyToClipboard(trafficSession.test_user_id, "User ID")}
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Secret Key</p>
+                          <p className="font-mono text-lg font-bold">{trafficSession.secret_key}</p>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => copyToClipboard(trafficSession.secret_key, "Secret Key")}
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
-                  )}
-                </ScrollArea>
+
+                    {/* Portal Link */}
+                    <div className="p-4 border rounded-lg">
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Driver should visit the Traffic Test Portal:
+                      </p>
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => window.open('/traffic-test', '_blank')}
+                      >
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Open Traffic Test Portal
+                      </Button>
+                    </div>
+
+                    {/* Status */}
+                    <div className={`p-4 rounded-lg ${
+                      trafficSession.status === 'completed' 
+                        ? 'bg-success/10 border border-success' 
+                        : trafficSession.status === 'in_progress'
+                        ? 'bg-warning/10 border border-warning'
+                        : 'bg-muted'
+                    }`}>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">Test Status</p>
+                          <Badge variant={
+                            trafficSession.status === 'completed' ? 'success' :
+                            trafficSession.status === 'in_progress' ? 'warning' : 'secondary'
+                          }>
+                            {trafficSession.status === 'completed' ? 'Completed' :
+                             trafficSession.status === 'in_progress' ? 'In Progress' : 'Pending'}
+                          </Badge>
+                        </div>
+                        {trafficSession.status === 'completed' && (
+                          <div className="text-right">
+                            <p className="text-sm text-muted-foreground">Score</p>
+                            <p className={`text-2xl font-bold ${
+                              (trafficSession.score || 0) >= 12 ? 'text-success' : 'text-destructive'
+                            }`}>
+                              {trafficSession.score}/20
+                            </p>
+                            <Badge variant={(trafficSession.score || 0) >= 12 ? 'success' : 'destructive'}>
+                              {(trafficSession.score || 0) >= 12 ? 'PASSED' : 'FAILED'}
+                            </Badge>
+                          </div>
+                        )}
+                      </div>
+                      {trafficSession.status !== 'completed' && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Results will update automatically when the driver completes the test
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
