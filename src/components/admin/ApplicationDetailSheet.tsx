@@ -166,14 +166,21 @@ const ApplicationDetailSheet = ({
 
   const openDocument = async (docPath: string) => {
     try {
-      const { data } = await supabase.storage
+      const { data, error } = await supabase.storage
         .from("application-documents")
-        .getPublicUrl(docPath);
+        .createSignedUrl(docPath, 3600); // 1 hour expiry
 
-      if (data?.publicUrl) {
-        window.open(data.publicUrl, "_blank");
+      if (error) {
+        console.error("Error creating signed URL:", error);
+        toast.error("Failed to open document");
+        return;
+      }
+
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, "_blank");
       }
     } catch (error) {
+      console.error("Error opening document:", error);
       toast.error("Failed to open document");
     }
   };
@@ -184,9 +191,9 @@ const ApplicationDetailSheet = ({
   const documentLabels: Record<string, string> = {
     licenceFront: "Driving Licence (Front)",
     licenceBack: "Driving Licence (Back)",
-    aadhaar: "Aadhaar/ID Proof",
+    aadhaarId: "Aadhaar/ID Proof",
     policeClearance: "Police Clearance Certificate",
-    photo: "Passport Photo",
+    photograph: "Passport Photo",
     educationCertificate: "Educational Certificate",
   };
 
