@@ -147,6 +147,7 @@ const AdminDashboard = () => {
 
   // Sheet states
   const [isPartnerSheetOpen, setIsPartnerSheetOpen] = useState(false);
+  const [isEditPartnerOpen, setIsEditPartnerOpen] = useState(false);
   const [isDataUserSheetOpen, setIsDataUserSheetOpen] = useState(false);
   const [isViewDriverOpen, setIsViewDriverOpen] = useState(false);
   const [isEditDriverOpen, setIsEditDriverOpen] = useState(false);
@@ -155,6 +156,7 @@ const AdminDashboard = () => {
   const [isDistrictSheetOpen, setIsDistrictSheetOpen] = useState(false);
   
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
+  const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
   const [selectedStateForDistrict, setSelectedStateForDistrict] = useState<State | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: string; name: string } | null>(null);
 
@@ -191,6 +193,15 @@ const AdminDashboard = () => {
 
   const [stateForm, setStateForm] = useState({ name: "", code: "" });
   const [districtForm, setDistrictForm] = useState({ name: "", code: "" });
+
+  const [editPartnerForm, setEditPartnerForm] = useState({
+    name: "",
+    address: "",
+    contactNumber: "",
+    gst: "",
+    district: "",
+    state: "",
+  });
 
   useEffect(() => {
     fetchData();
@@ -274,6 +285,50 @@ const AdminDashboard = () => {
       fetchData();
     } catch (error: any) {
       toast.error(error.message || "Failed to add partner");
+    }
+  };
+
+  const handleEditPartner = (partner: Partner) => {
+    setSelectedPartner(partner);
+    setEditPartnerForm({
+      name: partner.name,
+      address: partner.address,
+      contactNumber: partner.contact_number,
+      gst: partner.gst || "",
+      district: partner.district,
+      state: partner.state,
+    });
+    setIsEditPartnerOpen(true);
+  };
+
+  const handleSavePartnerEdit = async () => {
+    if (!selectedPartner) return;
+
+    if (!editPartnerForm.name || !editPartnerForm.address || !editPartnerForm.contactNumber || !editPartnerForm.district || !editPartnerForm.state) {
+      toast.error("Please fill all required fields");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("partners")
+        .update({
+          name: editPartnerForm.name,
+          address: editPartnerForm.address,
+          contact_number: editPartnerForm.contactNumber,
+          gst: editPartnerForm.gst || null,
+          district: editPartnerForm.district,
+          state: editPartnerForm.state,
+        })
+        .eq("id", selectedPartner.id);
+
+      if (error) throw error;
+
+      toast.success("Partner updated successfully");
+      setIsEditPartnerOpen(false);
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update partner");
     }
   };
 
@@ -604,14 +659,19 @@ const AdminDashboard = () => {
                           <TableCell>{partner.district}</TableCell>
                           <TableCell>{partner.gst || "-"}</TableCell>
                           <TableCell>
-                            <Button 
-                              size="icon" 
-                              variant="ghost" 
-                              className="text-destructive"
-                              onClick={() => openDeleteDialog("partner", partner.id, partner.name)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button size="icon" variant="ghost" onClick={() => handleEditPartner(partner)}>
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                className="text-destructive"
+                                onClick={() => openDeleteDialog("partner", partner.id, partner.name)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -972,6 +1032,94 @@ const AdminDashboard = () => {
             <SheetFooter>
               <Button variant="outline" onClick={() => setIsPartnerSheetOpen(false)}>Cancel</Button>
               <Button onClick={handleAddPartner}>Add Partner</Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
+
+        {/* Edit Partner Sheet */}
+        <Sheet open={isEditPartnerOpen} onOpenChange={setIsEditPartnerOpen}>
+          <SheetContent className="overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>Edit Partner</SheetTitle>
+              <SheetDescription>
+                {selectedPartner?.partner_type === "driving_school" ? "Driving School" : "Medical Lab"}
+              </SheetDescription>
+            </SheetHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Name *</Label>
+                <Input
+                  placeholder="Enter name"
+                  value={editPartnerForm.name}
+                  onChange={(e) => setEditPartnerForm({ ...editPartnerForm, name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Address *</Label>
+                <Input
+                  placeholder="Enter address"
+                  value={editPartnerForm.address}
+                  onChange={(e) => setEditPartnerForm({ ...editPartnerForm, address: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Contact Number *</Label>
+                <Input
+                  placeholder="Enter contact number"
+                  value={editPartnerForm.contactNumber}
+                  onChange={(e) => setEditPartnerForm({ ...editPartnerForm, contactNumber: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>GST Number</Label>
+                <Input
+                  placeholder="Enter GST (optional)"
+                  value={editPartnerForm.gst}
+                  onChange={(e) => setEditPartnerForm({ ...editPartnerForm, gst: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>State *</Label>
+                <Select 
+                  value={editPartnerForm.state} 
+                  onValueChange={(value) => setEditPartnerForm({ ...editPartnerForm, state: value, district: "" })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select state" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50 max-h-60">
+                    {states.map((state) => (
+                      <SelectItem key={state.id} value={state.name}>{state.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>District *</Label>
+                <Select 
+                  value={editPartnerForm.district} 
+                  onValueChange={(value) => setEditPartnerForm({ ...editPartnerForm, district: value })}
+                  disabled={!editPartnerForm.state}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={editPartnerForm.state ? "Select district" : "Select state first"} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50 max-h-60">
+                    {districts
+                      .filter((d) => {
+                        const selectedState = states.find((s) => s.name === editPartnerForm.state);
+                        return selectedState && d.state_id === selectedState.id;
+                      })
+                      .map((district) => (
+                        <SelectItem key={district.id} value={district.name}>{district.name}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <SheetFooter>
+              <Button variant="outline" onClick={() => setIsEditPartnerOpen(false)}>Cancel</Button>
+              <Button onClick={handleSavePartnerEdit}>Save Changes</Button>
             </SheetFooter>
           </SheetContent>
         </Sheet>
