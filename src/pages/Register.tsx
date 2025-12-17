@@ -1,19 +1,39 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import motractLogo from "@/assets/motract-logo.jpg";
 import { ArrowLeft, Phone, User, MapPin, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
+interface State {
+  id: string;
+  name: string;
+}
+
+interface District {
+  id: string;
+  state_id: string;
+  name: string;
+}
+
 const Register = () => {
   const [step, setStep] = useState<"details" | "otp">("details");
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [states, setStates] = useState<State[]>([]);
+  const [districts, setDistricts] = useState<District[]>([]);
   const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
@@ -26,6 +46,19 @@ const Register = () => {
     phone: "",
   });
 
+  useEffect(() => {
+    fetchStatesAndDistricts();
+  }, []);
+
+  const fetchStatesAndDistricts = async () => {
+    const [statesRes, districtsRes] = await Promise.all([
+      supabase.from("states").select("id, name").order("name"),
+      supabase.from("districts").select("id, state_id, name").order("name"),
+    ]);
+    if (statesRes.data) setStates(statesRes.data);
+    if (districtsRes.data) setDistricts(districtsRes.data);
+  };
+
   const formatPhone = (value: string) => {
     const digits = value.replace(/\D/g, "");
     return digits.slice(0, 10);
@@ -37,7 +70,17 @@ const Register = () => {
   };
 
   const handleChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (field === "state") {
+      setFormData((prev) => ({ ...prev, state: value, district: "" }));
+    } else {
+      setFormData((prev) => ({ ...prev, [field]: value }));
+    }
+  };
+
+  const getFilteredDistricts = () => {
+    const selectedState = states.find((s) => s.name === formData.state);
+    if (!selectedState) return [];
+    return districts.filter((d) => d.state_id === selectedState.id);
   };
 
   const handleSendOtp = async (e: React.FormEvent) => {
@@ -195,27 +238,36 @@ const Register = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="district">District *</Label>
-                    <Input
-                      id="district"
-                      placeholder="District"
-                      value={formData.district}
-                      onChange={(e) => handleChange("district", e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="state">State *</Label>
-                    <Input
-                      id="state"
-                      placeholder="State"
-                      value={formData.state}
-                      onChange={(e) => handleChange("state", e.target.value)}
-                      required
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label>State *</Label>
+                  <Select value={formData.state} onValueChange={(value) => handleChange("state", value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select state" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background z-50 max-h-60">
+                      {states.map((state) => (
+                        <SelectItem key={state.id} value={state.name}>{state.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>District *</Label>
+                  <Select 
+                    value={formData.district} 
+                    onValueChange={(value) => handleChange("district", value)}
+                    disabled={!formData.state}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={formData.state ? "Select district" : "Select state first"} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background z-50 max-h-60">
+                      {getFilteredDistricts().map((district) => (
+                        <SelectItem key={district.id} value={district.name}>{district.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
@@ -251,6 +303,12 @@ const Register = () => {
                 <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
                   {isLoading ? "Sending OTP..." : "Register & Send OTP"}
                 </Button>
+
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs text-muted-foreground text-center">
+                    <strong>Test OTP:</strong> Use code <strong>123456</strong> for testing
+                  </p>
+                </div>
               </form>
             ) : (
               <form onSubmit={handleVerifyOtp} className="space-y-4">
@@ -281,6 +339,12 @@ const Register = () => {
                   <Shield className="w-4 h-4 mr-2" />
                   {isLoading ? "Verifying..." : "Verify & Complete Registration"}
                 </Button>
+
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs text-muted-foreground text-center">
+                    <strong>Test OTP:</strong> Use code <strong>123456</strong>
+                  </p>
+                </div>
 
                 <Button 
                   type="button" 
