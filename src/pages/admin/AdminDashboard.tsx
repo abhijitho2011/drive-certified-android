@@ -241,6 +241,8 @@ const AdminDashboard = () => {
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ email: "", password: "", confirmPassword: "" });
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordTargetType, setPasswordTargetType] = useState<"partner" | "data_user">("partner");
+  const [selectedDataUser, setSelectedDataUser] = useState<DataUser | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -411,12 +413,23 @@ const AdminDashboard = () => {
 
   const handleSetPassword = (partner: Partner) => {
     setSelectedPartner(partner);
+    setSelectedDataUser(null);
+    setPasswordTargetType("partner");
     setPasswordForm({ email: partner.email || "", password: "", confirmPassword: "" });
     setIsPasswordDialogOpen(true);
   };
 
+  const handleSetDataUserPassword = (dataUser: DataUser) => {
+    setSelectedDataUser(dataUser);
+    setSelectedPartner(null);
+    setPasswordTargetType("data_user");
+    setPasswordForm({ email: dataUser.email || "", password: "", confirmPassword: "" });
+    setIsPasswordDialogOpen(true);
+  };
+
   const handleSavePassword = async () => {
-    if (!selectedPartner) return;
+    const targetId = passwordTargetType === "partner" ? selectedPartner?.id : selectedDataUser?.id;
+    if (!targetId) return;
     
     if (!passwordForm.email || !passwordForm.password) {
       toast.error("Email and password are required");
@@ -441,9 +454,12 @@ const AdminDashboard = () => {
         return;
       }
 
-      const response = await supabase.functions.invoke("set-partner-password", {
+      const functionName = passwordTargetType === "partner" ? "set-partner-password" : "set-data-user-password";
+      const bodyKey = passwordTargetType === "partner" ? "partnerId" : "dataUserId";
+
+      const response = await supabase.functions.invoke(functionName, {
         body: {
-          partnerId: selectedPartner.id,
+          [bodyKey]: targetId,
           email: passwordForm.email,
           password: passwordForm.password,
         },
@@ -872,7 +888,15 @@ const AdminDashboard = () => {
                               {user.status}
                             </Badge>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="flex items-center gap-1">
+                            <Button 
+                              size="icon" 
+                              variant="ghost"
+                              onClick={() => handleSetDataUserPassword(user)}
+                              title="Set Password"
+                            >
+                              <Key className="w-4 h-4" />
+                            </Button>
                             <Button 
                               size="icon" 
                               variant="ghost" 
@@ -1595,9 +1619,11 @@ const AdminDashboard = () => {
         <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Set Partner Password</DialogTitle>
+              <DialogTitle>
+                {passwordTargetType === "partner" ? "Set Partner Password" : "Set Data User Password"}
+              </DialogTitle>
               <DialogDescription>
-                Set login credentials for {selectedPartner?.name}
+                Set login credentials for {passwordTargetType === "partner" ? selectedPartner?.name : selectedDataUser?.company_name}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
