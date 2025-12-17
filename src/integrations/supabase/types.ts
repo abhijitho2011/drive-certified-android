@@ -56,6 +56,7 @@ export type Database = {
           test_state: string | null
           updated_at: string | null
           vehicle_classes: string[] | null
+          verification_agent_id: string | null
         }
         Insert: {
           aadhaar_number?: string | null
@@ -98,6 +99,7 @@ export type Database = {
           test_state?: string | null
           updated_at?: string | null
           vehicle_classes?: string[] | null
+          verification_agent_id?: string | null
         }
         Update: {
           aadhaar_number?: string | null
@@ -140,6 +142,7 @@ export type Database = {
           test_state?: string | null
           updated_at?: string | null
           vehicle_classes?: string[] | null
+          verification_agent_id?: string | null
         }
         Relationships: [
           {
@@ -418,6 +421,50 @@ export type Database = {
             columns: ["driving_school_id"]
             isOneToOne: false
             referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      education_verifications: {
+        Row: {
+          application_id: string
+          created_at: string | null
+          id: string
+          notes: string | null
+          rejection_reason: string | null
+          status: string | null
+          updated_at: string | null
+          verification_agent_id: string
+          verified_at: string | null
+        }
+        Insert: {
+          application_id: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          rejection_reason?: string | null
+          status?: string | null
+          updated_at?: string | null
+          verification_agent_id: string
+          verified_at?: string | null
+        }
+        Update: {
+          application_id?: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          rejection_reason?: string | null
+          status?: string | null
+          updated_at?: string | null
+          verification_agent_id?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "education_verifications_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
             referencedColumns: ["id"]
           },
         ]
@@ -799,6 +846,7 @@ export type Database = {
         | "driving_school"
         | "medical_lab"
         | "company_verifier"
+        | "verification_agent"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -932,6 +980,7 @@ export const Constants = {
         "driving_school",
         "medical_lab",
         "company_verifier",
+        "verification_agent",
       ],
     },
   },

@@ -19,7 +19,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 interface DashboardLayoutProps {
   children: ReactNode;
-  role: "driver" | "driving-school" | "medical-lab" | "admin" | "company";
+  role: "driver" | "driving-school" | "medical-lab" | "admin" | "company" | "verification-agent";
   userName?: string;
 }
 
@@ -47,6 +47,13 @@ const roleConfig = {
       { label: "Dashboard", href: "/medical-lab", icon: LayoutDashboard },
       { label: "Assigned Drivers", href: "/medical-lab/drivers", icon: FileText },
       { label: "Medical Reports", href: "/medical-lab/reports", icon: Upload },
+    ],
+  },
+  "verification-agent": {
+    title: "Education Verification Portal",
+    navItems: [
+      { label: "Dashboard", href: "/verification-agent", icon: LayoutDashboard },
+      { label: "Verifications", href: "/verification-agent/verifications", icon: FileText },
     ],
   },
   admin: {

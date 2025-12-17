@@ -50,6 +50,7 @@ import {
   MapPin,
   Stethoscope,
   GraduationCap,
+  UserCheck,
   Briefcase,
   RefreshCw,
   Map,
@@ -296,9 +297,15 @@ const AdminDashboard = () => {
         if (error) throw error;
       } else if (authData.user) {
         // Insert role and partner
+        const roleMap: Record<string, "admin" | "company_verifier" | "driver" | "driving_school" | "medical_lab" | "verification_agent"> = {
+          driving_school: "driving_school",
+          medical_lab: "medical_lab",
+          verification_agent: "verification_agent",
+        };
+        
         await supabase.from("user_roles").insert({
           user_id: authData.user.id,
-          role: partnerType === "driving_school" ? "driving_school" : "medical_lab",
+          role: roleMap[partnerType] || "driving_school",
         });
 
         await supabase.from("partners").insert({
@@ -783,10 +790,16 @@ const AdminDashboard = () => {
                             <div className="flex items-center gap-2">
                               {partner.partner_type === "driving_school" ? (
                                 <GraduationCap className="w-4 h-4 text-primary" />
+                              ) : partner.partner_type === "verification_agent" ? (
+                                <UserCheck className="w-4 h-4 text-primary" />
                               ) : (
                                 <Stethoscope className="w-4 h-4 text-primary" />
                               )}
-                              {partner.partner_type === "driving_school" ? "Driving School" : "Medical Lab"}
+                              {partner.partner_type === "driving_school" 
+                                ? "Driving School" 
+                                : partner.partner_type === "verification_agent"
+                                ? "Verification Agent"
+                                : "Medical Lab"}
                             </div>
                           </TableCell>
                           <TableCell className="font-medium">{partner.name}</TableCell>
@@ -1141,6 +1154,12 @@ const AdminDashboard = () => {
                         Medical Lab
                       </div>
                     </SelectItem>
+                    <SelectItem value="verification_agent">
+                      <div className="flex items-center gap-2">
+                        <UserCheck className="w-4 h-4" />
+                        Verification Agent
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1237,7 +1256,11 @@ const AdminDashboard = () => {
             <SheetHeader>
               <SheetTitle>Edit Partner</SheetTitle>
               <SheetDescription>
-                {selectedPartner?.partner_type === "driving_school" ? "Driving School" : "Medical Lab"}
+                {selectedPartner?.partner_type === "driving_school" 
+                  ? "Driving School" 
+                  : selectedPartner?.partner_type === "verification_agent"
+                  ? "Verification Agent"
+                  : "Medical Lab"}
               </SheetDescription>
             </SheetHeader>
             <div className="space-y-4 py-4">
