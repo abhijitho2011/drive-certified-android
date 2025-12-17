@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import {
   Select,
   SelectContent,
@@ -13,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import motractLogo from "@/assets/motract-logo.jpg";
-import { ArrowLeft, Phone, User, MapPin, Shield } from "lucide-react";
+import { ArrowLeft, Phone, User, MapPin, Mail, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -29,8 +28,6 @@ interface District {
 }
 
 const Register = () => {
-  const [step, setStep] = useState<"details" | "otp">("details");
-  const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [states, setStates] = useState<State[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
@@ -39,6 +36,8 @@ const Register = () => {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
+    email: "",
+    password: "",
     address: "",
     district: "",
     state: "",
@@ -83,13 +82,18 @@ const Register = () => {
     return districts.filter((d) => d.state_id === selectedState.id);
   };
 
-  const handleSendOtp = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const { firstName, lastName, address, district, state, pinCode, phone } = formData;
+    const { firstName, lastName, email, password, address, district, state, pinCode, phone } = formData;
     
-    if (!firstName || !lastName || !address || !district || !state || !pinCode || phone.length !== 10) {
+    if (!firstName || !lastName || !email || !password || !address || !district || !state || !pinCode || phone.length !== 10) {
       toast.error("Please fill all required fields");
+      return;
+    }
+
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters");
       return;
     }
 
@@ -101,42 +105,16 @@ const Register = () => {
     setIsLoading(true);
     
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        phone: `+91${phone}`,
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
         options: {
+          emailRedirectTo: `${window.location.origin}/`,
           data: {
             first_name: firstName,
             last_name: lastName,
           },
         },
-      });
-
-      if (error) throw error;
-      
-      toast.success("OTP sent to your mobile number");
-      setStep("otp");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to send OTP");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (otp.length !== 6) {
-      toast.error("Please enter a valid 6-digit OTP");
-      return;
-    }
-
-    setIsLoading(true);
-    
-    try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        phone: `+91${formData.phone}`,
-        token: otp,
-        type: "sms",
       });
 
       if (error) throw error;
@@ -151,20 +129,24 @@ const Register = () => {
         // Insert driver details
         await supabase.from("drivers").insert({
           user_id: data.user.id,
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          address: formData.address,
-          district: formData.district,
-          state: formData.state,
-          pin_code: formData.pinCode,
-          phone: formData.phone,
+          first_name: firstName,
+          last_name: lastName,
+          address: address,
+          district: district,
+          state: state,
+          pin_code: pinCode,
+          phone: phone,
         });
 
         toast.success("Registration successful! Redirecting to dashboard...");
         navigate("/driver");
       }
     } catch (error: any) {
-      toast.error(error.message || "Registration failed");
+      if (error.message?.includes("already registered")) {
+        toast.error("This email is already registered. Please login instead.");
+      } else {
+        toast.error(error.message || "Registration failed");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -187,178 +169,150 @@ const Register = () => {
               <img src={motractLogo} alt="MOTRACT" className="h-14 rounded-lg" />
             </div>
             <CardTitle className="text-2xl">Driver Registration</CardTitle>
-            <CardDescription>
-              {step === "details" 
-                ? "Create your driver account" 
-                : "Enter the OTP sent to your mobile"}
-            </CardDescription>
+            <CardDescription>Create your driver account</CardDescription>
           </CardHeader>
           <CardContent>
-            {step === "details" ? (
-              <form onSubmit={handleSendOtp} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="firstName">First Name *</Label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        id="firstName"
-                        placeholder="First name"
-                        value={formData.firstName}
-                        onChange={(e) => handleChange("firstName", e.target.value)}
-                        className="pl-10"
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName">Last Name *</Label>
-                    <Input
-                      id="lastName"
-                      placeholder="Last name"
-                      value={formData.lastName}
-                      onChange={(e) => handleChange("lastName", e.target.value)}
-                      required
-                    />
-                  </div>
-                </div>
-
+            <form onSubmit={handleRegister} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="address">Address *</Label>
+                  <Label htmlFor="firstName">First Name *</Label>
                   <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
-                      id="address"
-                      placeholder="Enter your full address"
-                      value={formData.address}
-                      onChange={(e) => handleChange("address", e.target.value)}
+                      id="firstName"
+                      placeholder="First name"
+                      value={formData.firstName}
+                      onChange={(e) => handleChange("firstName", e.target.value)}
                       className="pl-10"
                       required
                     />
                   </div>
                 </div>
-
                 <div className="space-y-2">
-                  <Label>State *</Label>
-                  <Select value={formData.state} onValueChange={(value) => handleChange("state", value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select state" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background z-50 max-h-60">
-                      {states.map((state) => (
-                        <SelectItem key={state.id} value={state.name}>{state.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>District *</Label>
-                  <Select 
-                    value={formData.district} 
-                    onValueChange={(value) => handleChange("district", value)}
-                    disabled={!formData.state}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={formData.state ? "Select district" : "Select state first"} />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background z-50 max-h-60">
-                      {getFilteredDistricts().map((district) => (
-                        <SelectItem key={district.id} value={district.name}>{district.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="pinCode">PIN Code *</Label>
+                  <Label htmlFor="lastName">Last Name *</Label>
                   <Input
-                    id="pinCode"
-                    placeholder="6-digit PIN code"
-                    value={formData.pinCode}
-                    onChange={(e) => handleChange("pinCode", formatPinCode(e.target.value))}
+                    id="lastName"
+                    placeholder="Last name"
+                    value={formData.lastName}
+                    onChange={(e) => handleChange("lastName", e.target.value)}
                     required
                   />
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Mobile Number *</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <div className="absolute left-10 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                      +91
-                    </div>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="10-digit number"
-                      value={formData.phone}
-                      onChange={(e) => handleChange("phone", formatPhone(e.target.value))}
-                      className="pl-20"
-                      required
-                    />
+              <div className="space-y-2">
+                <Label htmlFor="email">Email *</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={formData.email}
+                    onChange={(e) => handleChange("email", e.target.value)}
+                    className="pl-10"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">Password *</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Min 6 characters"
+                    value={formData.password}
+                    onChange={(e) => handleChange("password", e.target.value)}
+                    className="pl-10"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="phone">Mobile Number *</Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <div className="absolute left-10 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                    +91
                   </div>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="10-digit number"
+                    value={formData.phone}
+                    onChange={(e) => handleChange("phone", formatPhone(e.target.value))}
+                    className="pl-20"
+                    required
+                  />
                 </div>
+              </div>
 
-                <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
-                  {isLoading ? "Sending OTP..." : "Register & Send OTP"}
-                </Button>
-
-                <div className="p-3 bg-muted rounded-lg">
-                  <p className="text-xs text-muted-foreground text-center">
-                    <strong>Test OTP:</strong> Use code <strong>123456</strong> for testing
-                  </p>
+              <div className="space-y-2">
+                <Label htmlFor="address">Address *</Label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="address"
+                    placeholder="Enter your full address"
+                    value={formData.address}
+                    onChange={(e) => handleChange("address", e.target.value)}
+                    className="pl-10"
+                    required
+                  />
                 </div>
-              </form>
-            ) : (
-              <form onSubmit={handleVerifyOtp} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Enter OTP</Label>
-                  <div className="flex justify-center">
-                    <InputOTP
-                      maxLength={6}
-                      value={otp}
-                      onChange={(value) => setOtp(value)}
-                    >
-                      <InputOTPGroup>
-                        <InputOTPSlot index={0} />
-                        <InputOTPSlot index={1} />
-                        <InputOTPSlot index={2} />
-                        <InputOTPSlot index={3} />
-                        <InputOTPSlot index={4} />
-                        <InputOTPSlot index={5} />
-                      </InputOTPGroup>
-                    </InputOTP>
-                  </div>
-                  <p className="text-xs text-center text-muted-foreground mt-2">
-                    OTP sent to +91 {formData.phone}
-                  </p>
-                </div>
+              </div>
 
-                <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
-                  <Shield className="w-4 h-4 mr-2" />
-                  {isLoading ? "Verifying..." : "Verify & Complete Registration"}
-                </Button>
+              <div className="space-y-2">
+                <Label>State *</Label>
+                <Select value={formData.state} onValueChange={(value) => handleChange("state", value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select state" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50 max-h-60">
+                    {states.map((state) => (
+                      <SelectItem key={state.id} value={state.name}>{state.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-                <div className="p-3 bg-muted rounded-lg">
-                  <p className="text-xs text-muted-foreground text-center">
-                    <strong>Test OTP:</strong> Use code <strong>123456</strong>
-                  </p>
-                </div>
-
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  className="w-full"
-                  onClick={() => {
-                    setStep("details");
-                    setOtp("");
-                  }}
+              <div className="space-y-2">
+                <Label>District *</Label>
+                <Select 
+                  value={formData.district} 
+                  onValueChange={(value) => handleChange("district", value)}
+                  disabled={!formData.state}
                 >
-                  Back to Details
-                </Button>
-              </form>
-            )}
+                  <SelectTrigger>
+                    <SelectValue placeholder={formData.state ? "Select district" : "Select state first"} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50 max-h-60">
+                    {getFilteredDistricts().map((district) => (
+                      <SelectItem key={district.id} value={district.name}>{district.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="pinCode">PIN Code *</Label>
+                <Input
+                  id="pinCode"
+                  placeholder="6-digit PIN code"
+                  value={formData.pinCode}
+                  onChange={(e) => handleChange("pinCode", formatPinCode(e.target.value))}
+                  required
+                />
+              </div>
+
+              <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+                {isLoading ? "Registering..." : "Register"}
+              </Button>
+            </form>
 
             <div className="mt-6 text-center text-sm">
               <span className="text-muted-foreground">Already registered? </span>
