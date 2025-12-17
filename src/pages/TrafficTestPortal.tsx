@@ -20,13 +20,6 @@ interface TrafficQuestion {
   correct_answer: string;
 }
 
-interface ShuffledQuestion {
-  id: string;
-  question: string;
-  options: { key: string; value: string; originalKey: string }[];
-  correctShuffledKey: string;
-}
-
 interface TestSession {
   id: string;
   application_id: string;
@@ -43,7 +36,6 @@ const TrafficTestPortal = () => {
   const [secretKey, setSecretKey] = useState("");
   const [session, setSession] = useState<TestSession | null>(null);
   const [questions, setQuestions] = useState<TrafficQuestion[]>([]);
-  const [shuffledQuestions, setShuffledQuestions] = useState<ShuffledQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -108,41 +100,8 @@ const TrafficTestPortal = () => {
 
       if (questionsData) {
         // Shuffle and pick 20 questions
-        const shuffledQs = questionsData.sort(() => 0.5 - Math.random()).slice(0, 20);
-        setQuestions(shuffledQs);
-        
-        // Shuffle options for each question
-        const shuffledWithOptions: ShuffledQuestion[] = shuffledQs.map((q) => {
-          const originalOptions = [
-            { key: "A", value: q.option_a, originalKey: "A" },
-            { key: "B", value: q.option_b, originalKey: "B" },
-            { key: "C", value: q.option_c, originalKey: "C" },
-            { key: "D", value: q.option_d, originalKey: "D" },
-          ];
-          
-          // Shuffle options
-          const shuffledOptions = [...originalOptions].sort(() => 0.5 - Math.random());
-          
-          // Assign new keys (a, b, c, d)
-          const optionsWithNewKeys = shuffledOptions.map((opt, idx) => ({
-            ...opt,
-            key: ["a", "b", "c", "d"][idx],
-          }));
-          
-          // Find which new key has the correct answer
-          const correctOption = optionsWithNewKeys.find(
-            (opt) => opt.originalKey === q.correct_answer
-          );
-          
-          return {
-            id: q.id,
-            question: q.question,
-            options: optionsWithNewKeys,
-            correctShuffledKey: correctOption?.key || "a",
-          };
-        });
-        
-        setShuffledQuestions(shuffledWithOptions);
+        const shuffled = questionsData.sort(() => 0.5 - Math.random()).slice(0, 20);
+        setQuestions(shuffled);
       }
 
       // Update session if first login
@@ -176,15 +135,15 @@ const TrafficTestPortal = () => {
 
     setSubmitting(true);
     try {
-      // Calculate score using shuffled questions
+      // Calculate score
       let score = 0;
-      shuffledQuestions.forEach((q) => {
-        if (answers[q.id] === q.correctShuffledKey) {
+      questions.forEach((q) => {
+        if (answers[q.id] === q.correct_answer) {
           score++;
         }
       });
 
-      const scaledScore = Math.round((score / Math.max(shuffledQuestions.length, 1)) * 20);
+      const scaledScore = Math.round((score / Math.max(questions.length, 1)) * 20);
 
       // Update session
       const { error } = await supabase
@@ -325,7 +284,7 @@ const TrafficTestPortal = () => {
 
   // Test Screen
   const answeredCount = Object.keys(answers).length;
-  const progress = (answeredCount / Math.max(shuffledQuestions.length, 1)) * 100;
+  const progress = (answeredCount / questions.length) * 100;
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -348,7 +307,7 @@ const TrafficTestPortal = () => {
                   {formatTime(timeLeft)}
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  {answeredCount}/{shuffledQuestions.length} answered
+                  {answeredCount}/{questions.length} answered
                 </p>
               </div>
             </div>
@@ -357,7 +316,7 @@ const TrafficTestPortal = () => {
         </Card>
 
         {/* Questions */}
-        {shuffledQuestions.length === 0 ? (
+        {questions.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
@@ -366,7 +325,7 @@ const TrafficTestPortal = () => {
           </Card>
         ) : (
           <div className="space-y-4">
-            {shuffledQuestions.map((q, index) => (
+            {questions.map((q, index) => (
               <Card key={q.id} className={answers[q.id] ? "border-primary/50" : ""}>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-start gap-2">
@@ -381,14 +340,14 @@ const TrafficTestPortal = () => {
                     value={answers[q.id] || ""}
                     onValueChange={(value) => handleAnswerChange(q.id, value)}
                   >
-                    {q.options.map((opt) => (
-                      <div key={opt.key} className="flex items-center space-x-2 py-1">
-                        <RadioGroupItem value={opt.key} id={`${q.id}-${opt.key}`} />
+                    {["a", "b", "c", "d"].map((opt) => (
+                      <div key={opt} className="flex items-center space-x-2 py-1">
+                        <RadioGroupItem value={opt} id={`${q.id}-${opt}`} />
                         <Label 
-                          htmlFor={`${q.id}-${opt.key}`} 
+                          htmlFor={`${q.id}-${opt}`} 
                           className="flex-1 cursor-pointer"
                         >
-                          {opt.value}
+                          {q[`option_${opt}` as keyof TrafficQuestion]}
                         </Label>
                       </div>
                     ))}
@@ -404,8 +363,8 @@ const TrafficTestPortal = () => {
                   <div>
                     <p className="font-medium">Ready to submit?</p>
                     <p className="text-sm text-muted-foreground">
-                      {answeredCount < shuffledQuestions.length 
-                        ? `You have ${shuffledQuestions.length - answeredCount} unanswered questions`
+                      {answeredCount < questions.length 
+                        ? `You have ${questions.length - answeredCount} unanswered questions`
                         : "All questions answered!"
                       }
                     </p>

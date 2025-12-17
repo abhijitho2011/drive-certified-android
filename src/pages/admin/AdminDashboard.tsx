@@ -68,7 +68,6 @@ import { supabase } from "@/integrations/supabase/client";
 import ClientProfileSheet from "@/components/admin/ClientProfileSheet";
 import ApplicationDetailSheet from "@/components/admin/ApplicationDetailSheet";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import QuestionManagement from "@/components/admin/QuestionManagement";
 
 interface Driver {
   id: string;
@@ -1108,9 +1107,6 @@ const AdminDashboard = () => {
                 )}
               </CardContent>
             </Card>
-
-            {/* Traffic Law Questions */}
-            <QuestionManagement />
           </TabsContent>
         </Tabs>
 

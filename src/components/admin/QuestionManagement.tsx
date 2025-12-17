@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,8 +39,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Pencil, Trash2, FileText, Upload, FileSpreadsheet } from "lucide-react";
-import * as XLSX from "xlsx";
+import { Plus, Pencil, Trash2, FileText } from "lucide-react";
 
 interface Question {
   id: string;
@@ -63,8 +62,6 @@ const QuestionManagement = () => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [form, setForm] = useState({
     question: "",
@@ -221,74 +218,6 @@ const QuestionManagement = () => {
     }
   };
 
-  const handleExcelUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-    try {
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
-
-      // Skip header row if it exists
-      const startRow = jsonData[0]?.[0]?.toString().toLowerCase().includes("question") ? 1 : 0;
-      
-      const questionsToInsert: any[] = [];
-      
-      for (let i = startRow; i < jsonData.length; i++) {
-        const row = jsonData[i];
-        if (!row || !row[0]) continue; // Skip empty rows
-
-        const questionText = row[0]?.toString().trim();
-        const optionB = row[1]?.toString().trim();
-        const optionC = row[2]?.toString().trim();
-        const optionD = row[3]?.toString().trim();
-        const optionE = row[4]?.toString().trim();
-        const correctAnswerCell = row[5]?.toString().trim().toUpperCase();
-
-        if (!questionText || !optionB || !optionC || !optionD || !optionE) continue;
-
-        // Map F column (B, C, D, E) to our format (A, B, C, D)
-        const answerMap: Record<string, string> = { B: "A", C: "B", D: "C", E: "D" };
-        const correctAnswer = answerMap[correctAnswerCell] || "A";
-
-        questionsToInsert.push({
-          question: questionText,
-          option_a: optionB, // B1 becomes option A
-          option_b: optionC, // C1 becomes option B
-          option_c: optionD, // D1 becomes option C
-          option_d: optionE, // E1 becomes option D
-          correct_answer: correctAnswer,
-          category: "general",
-          is_hazardous_only: false,
-        });
-      }
-
-      if (questionsToInsert.length === 0) {
-        toast.error("No valid questions found in the file");
-        return;
-      }
-
-      const { error } = await supabase
-        .from("traffic_law_questions")
-        .insert(questionsToInsert);
-
-      if (error) throw error;
-
-      toast.success(`Successfully imported ${questionsToInsert.length} questions`);
-      fetchQuestions();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to import questions");
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    }
-  };
-
   const categories = [
     { value: "general", label: "General Traffic Rules" },
     { value: "speed_limits", label: "Speed Limits" },
@@ -402,31 +331,11 @@ const QuestionManagement = () => {
             </CardTitle>
             <CardDescription>Manage MCQ question bank for driving tests</CardDescription>
           </div>
-          <div className="flex gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={handleExcelUpload}
-              className="hidden"
-            />
-            <Button 
-              variant="outline" 
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-            >
-              <FileSpreadsheet className="w-4 h-4 mr-2" />
-              {uploading ? "Importing..." : "Upload Excel"}
-            </Button>
-            <Button onClick={() => { resetForm(); setIsAddOpen(true); }}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Question
-            </Button>
-          </div>
+          <Button onClick={() => { resetForm(); setIsAddOpen(true); }}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Question
+          </Button>
         </div>
-        <p className="text-xs text-muted-foreground mt-2">
-          Excel format: A=Question, B/C/D/E=Options, F=Correct answer (B/C/D/E)
-        </p>
       </CardHeader>
       <CardContent>
         <div className="rounded-md border">
@@ -445,7 +354,7 @@ const QuestionManagement = () => {
               {questions.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    No questions added yet. Click "Add Question" or upload an Excel file.
+                    No questions added yet. Click "Add Question" to create one.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -463,7 +372,7 @@ const QuestionManagement = () => {
                     </TableCell>
                     <TableCell>
                       <Badge 
-                        variant={q.status === "active" ? "default" : "secondary"}
+                        variant={q.status === "active" ? "success" : "secondary"}
                         className="cursor-pointer"
                         onClick={() => handleToggleStatus(q)}
                       >
