@@ -99,9 +99,39 @@ const TrafficTestPortal = () => {
         .limit(25);
 
       if (questionsData) {
-        // Shuffle and pick 20 questions
+        // Shuffle and pick 20 questions, then shuffle options for each
         const shuffled = questionsData.sort(() => 0.5 - Math.random()).slice(0, 20);
-        setQuestions(shuffled);
+        
+        // Shuffle options for each question
+        const shuffledWithOptions = shuffled.map((q) => {
+          const options = [
+            { key: "A", value: q.option_a },
+            { key: "B", value: q.option_b },
+            { key: "C", value: q.option_c },
+            { key: "D", value: q.option_d },
+          ];
+          
+          // Fisher-Yates shuffle for options
+          for (let i = options.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [options[i], options[j]] = [options[j], options[i]];
+          }
+          
+          // Find new position of correct answer
+          const correctOptionValue = q[`option_${q.correct_answer.toLowerCase()}` as keyof typeof q] as string;
+          const newCorrectKey = ["A", "B", "C", "D"][options.findIndex(opt => opt.value === correctOptionValue)];
+          
+          return {
+            ...q,
+            option_a: options[0].value,
+            option_b: options[1].value,
+            option_c: options[2].value,
+            option_d: options[3].value,
+            correct_answer: newCorrectKey,
+          };
+        });
+        
+        setQuestions(shuffledWithOptions);
       }
 
       // Update session if first login

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +39,8 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Pencil, Trash2, FileText } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Upload, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 
 interface Question {
   id: string;
@@ -62,6 +63,8 @@ const QuestionManagement = () => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [form, setForm] = useState({
     question: "",
@@ -228,6 +231,82 @@ const QuestionManagement = () => {
     { value: "hazard_signage", label: "Hazard Signage" },
   ];
 
+  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
+      // Skip header row if exists, parse from row 1
+      const questionsToInsert: any[] = [];
+      
+      for (let i = 0; i < jsonData.length; i++) {
+        const row = jsonData[i];
+        if (!row[0] || row[0].toString().toLowerCase() === 'question') continue; // Skip header or empty
+        
+        const question = row[0]?.toString().trim();
+        const optionA = row[1]?.toString().trim();
+        const optionB = row[2]?.toString().trim();
+        const optionC = row[3]?.toString().trim();
+        const optionD = row[4]?.toString().trim();
+        const correctAnswer = row[5]?.toString().trim().toUpperCase();
+
+        if (!question || !optionA || !optionB || !optionC || !optionD || !correctAnswer) continue;
+        
+        // F column should contain A, B, C, or D
+        if (!['A', 'B', 'C', 'D'].includes(correctAnswer)) {
+          toast.error(`Row ${i + 1}: Invalid answer "${correctAnswer}". Must be A, B, C, or D`);
+          continue;
+        }
+
+        questionsToInsert.push({
+          question,
+          option_a: optionA,
+          option_b: optionB,
+          option_c: optionC,
+          option_d: optionD,
+          correct_answer: correctAnswer,
+          category: "general",
+          is_hazardous_only: false,
+        });
+      }
+
+      if (questionsToInsert.length === 0) {
+        toast.error("No valid questions found in the Excel file");
+        return;
+      }
+
+      const { error } = await supabase.from("traffic_law_questions").insert(questionsToInsert);
+      if (error) throw error;
+
+      toast.success(`${questionsToInsert.length} questions uploaded successfully`);
+      fetchQuestions();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to upload Excel file");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const downloadTemplate = () => {
+    const templateData = [
+      ["Question", "Option A", "Option B", "Option C", "Option D", "Correct Answer (A/B/C/D)"],
+      ["What is the maximum speed limit in residential areas?", "30 km/h", "40 km/h", "50 km/h", "60 km/h", "B"],
+      ["When should you use hazard lights?", "While parking illegally", "During emergency stops", "While overtaking", "While reversing", "B"],
+    ];
+    
+    const ws = XLSX.utils.aoa_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Questions");
+    XLSX.writeFile(wb, "traffic_questions_template.xlsx");
+  };
+
   const QuestionForm = ({ onSubmit, submitLabel }: { onSubmit: () => void; submitLabel: string }) => (
     <div className="space-y-4 py-4">
       <div className="space-y-2">
@@ -331,10 +410,31 @@ const QuestionManagement = () => {
             </CardTitle>
             <CardDescription>Manage MCQ question bank for driving tests</CardDescription>
           </div>
-          <Button onClick={() => { resetForm(); setIsAddOpen(true); }}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Question
-          </Button>
+          <div className="flex gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              className="hidden"
+              onChange={handleExcelUpload}
+            />
+            <Button variant="outline" onClick={downloadTemplate}>
+              <Download className="w-4 h-4 mr-2" />
+              Template
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              {uploading ? "Uploading..." : "Upload Excel"}
+            </Button>
+            <Button onClick={() => { resetForm(); setIsAddOpen(true); }}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Question
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
