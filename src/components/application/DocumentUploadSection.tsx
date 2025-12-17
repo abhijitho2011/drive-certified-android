@@ -24,6 +24,7 @@ const DOCUMENT_TYPES: DocumentType[] = [
   { id: "licenceFront", label: "Driving Licence (Front)", required: true, accept: "image/*,.pdf" },
   { id: "licenceBack", label: "Driving Licence (Back)", required: true, accept: "image/*,.pdf" },
   { id: "aadhaarId", label: "Aadhaar / Government ID", required: true, accept: "image/*,.pdf" },
+  { id: "educationCertificate", label: "Educational Qualification Certificate", required: true, accept: "image/*,.pdf" },
   { id: "policeClearance", label: "Police Clearance Certificate", required: false, accept: "image/*,.pdf" },
   { id: "photograph", label: "Passport Size Photograph", required: true, accept: "image/*" },
 ];

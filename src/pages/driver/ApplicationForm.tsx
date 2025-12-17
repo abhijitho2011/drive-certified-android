@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Check, Loader2 } from "lucide-react";
 import BasicDetailsSection from "@/components/application/BasicDetailsSection";
+import EducationSection from "@/components/application/EducationSection";
 import LicenceDetailsSection from "@/components/application/LicenceDetailsSection";
 import VerificationRequestSection from "@/components/application/VerificationRequestSection";
 import DocumentUploadSection from "@/components/application/DocumentUploadSection";
@@ -28,7 +29,9 @@ export interface ApplicationFormData {
   permanentDistrict: string;
   permanentPinCode: string;
   aadhaarNumber: string;
-  // Section 2: Licence Details
+  // Section 2: Educational Qualification
+  highestQualification: string;
+  // Section 3: Licence Details
   licenceNumber: string;
   issuingRto: string;
   licenceIssueDate: string;
@@ -36,20 +39,21 @@ export interface ApplicationFormData {
   licenceType: string;
   vehicleClasses: string[];
   hazardousEndorsement: boolean;
-  // Section 3: Verification Request
+  // Section 4: Verification Request
   certificationVehicleClasses: string[];
   certificationPurposes: string[];
-  // Section 4: Documents
+  // Section 5: Documents
   documents: {
     licenceFront?: string;
     licenceBack?: string;
     aadhaarId?: string;
     policeClearance?: string;
     photograph?: string;
+    educationCertificate?: string;
   };
-  // Section 5: Declaration
+  // Section 6: Declaration
   declarationSigned: boolean;
-  // Section 6: Test Center
+  // Section 7: Test Center
   testState: string;
   testDistrict: string;
   drivingSchoolId: string;
@@ -71,6 +75,7 @@ const initialFormData: ApplicationFormData = {
   permanentDistrict: "",
   permanentPinCode: "",
   aadhaarNumber: "",
+  highestQualification: "",
   licenceNumber: "",
   issuingRto: "",
   licenceIssueDate: "",
@@ -92,11 +97,12 @@ const initialFormData: ApplicationFormData = {
 
 const STEPS = [
   { id: 1, title: "Basic Details", description: "Personal information" },
-  { id: 2, title: "Licence Details", description: "Driving licence information" },
-  { id: 3, title: "Verification Request", description: "Certification details" },
-  { id: 4, title: "Documents", description: "Upload required documents" },
-  { id: 5, title: "Declaration", description: "Legal declaration" },
-  { id: 6, title: "Test Center", description: "Schedule appointments" },
+  { id: 2, title: "Education", description: "Educational qualification" },
+  { id: 3, title: "Licence Details", description: "Driving licence information" },
+  { id: 4, title: "Verification Request", description: "Certification details" },
+  { id: 5, title: "Documents", description: "Upload required documents" },
+  { id: 6, title: "Declaration", description: "Legal declaration" },
+  { id: 7, title: "Test Center", description: "Schedule appointments" },
 ];
 
 const ApplicationForm = () => {
@@ -153,6 +159,7 @@ const ApplicationForm = () => {
             currentAddress: existingApp.current_address || prev.currentAddress,
             permanentAddress: existingApp.permanent_address || "",
             aadhaarNumber: existingApp.aadhaar_number || "",
+            highestQualification: existingApp.highest_qualification || "",
             licenceNumber: existingApp.licence_number || "",
             issuingRto: existingApp.issuing_rto || "",
             licenceIssueDate: existingApp.licence_issue_date || "",
@@ -201,6 +208,12 @@ const ApplicationForm = () => {
         }
         return true;
       case 2:
+        if (!formData.highestQualification) {
+          toast.error("Please select your highest qualification");
+          return false;
+        }
+        return true;
+      case 3:
         if (!formData.licenceNumber || !formData.issuingRto || 
             !formData.licenceIssueDate || !formData.licenceExpiryDate || !formData.licenceType) {
           toast.error("Please fill in all licence details");
@@ -211,26 +224,26 @@ const ApplicationForm = () => {
           return false;
         }
         return true;
-      case 3:
+      case 4:
         if (formData.certificationVehicleClasses.length === 0 || formData.certificationPurposes.length === 0) {
           toast.error("Please select at least one vehicle class and purpose");
           return false;
         }
         return true;
-      case 4:
+      case 5:
         if (!formData.documents.licenceFront || !formData.documents.licenceBack || 
-            !formData.documents.aadhaarId || !formData.documents.photograph) {
+            !formData.documents.aadhaarId || !formData.documents.educationCertificate || !formData.documents.photograph) {
           toast.error("Please upload all required documents");
           return false;
         }
         return true;
-      case 5:
+      case 6:
         if (!formData.declarationSigned) {
           toast.error("Please sign the declaration to proceed");
           return false;
         }
         return true;
-      case 6:
+      case 7:
         if (!formData.testState || !formData.testDistrict || 
             !formData.drivingSchoolId || !formData.medicalLabId) {
           toast.error("Please select test centers");
@@ -265,6 +278,7 @@ const ApplicationForm = () => {
         current_address: formData.currentAddress,
         permanent_address: formData.permanentAddress || formData.currentAddress,
         aadhaar_number: formData.aadhaarNumber,
+        highest_qualification: formData.highestQualification,
         licence_number: formData.licenceNumber,
         issuing_rto: formData.issuingRto,
         licence_issue_date: formData.licenceIssueDate,
@@ -329,14 +343,16 @@ const ApplicationForm = () => {
       case 1:
         return <BasicDetailsSection formData={formData} updateFormData={updateFormData} />;
       case 2:
-        return <LicenceDetailsSection formData={formData} updateFormData={updateFormData} />;
+        return <EducationSection formData={formData} updateFormData={updateFormData} />;
       case 3:
-        return <VerificationRequestSection formData={formData} updateFormData={updateFormData} />;
+        return <LicenceDetailsSection formData={formData} updateFormData={updateFormData} />;
       case 4:
-        return <DocumentUploadSection formData={formData} updateFormData={updateFormData} userId={user?.id || ""} />;
+        return <VerificationRequestSection formData={formData} updateFormData={updateFormData} />;
       case 5:
-        return <DeclarationSection formData={formData} updateFormData={updateFormData} />;
+        return <DocumentUploadSection formData={formData} updateFormData={updateFormData} userId={user?.id || ""} />;
       case 6:
+        return <DeclarationSection formData={formData} updateFormData={updateFormData} />;
+      case 7:
         return <TestCenterSection formData={formData} updateFormData={updateFormData} />;
       default:
         return null;
