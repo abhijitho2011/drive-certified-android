@@ -1,0 +1,179 @@
+import DashboardLayout from "@/components/DashboardLayout";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Link } from "react-router-dom";
+import { 
+  FileText, 
+  Upload, 
+  Award, 
+  Clock, 
+  CheckCircle2, 
+  AlertCircle,
+  ArrowRight,
+  Car
+} from "lucide-react";
+
+const DriverDashboard = () => {
+  // Mock data - will be replaced with actual data
+  const applicationStatus = "pending"; // submitted, driving_test, medical_test, admin_review, approved, rejected
+  const progress = 40;
+
+  const statusSteps = [
+    { label: "Application Submitted", completed: true, current: false },
+    { label: "Driving School Test", completed: false, current: true },
+    { label: "Medical Test", completed: false, current: false },
+    { label: "Admin Review", completed: false, current: false },
+    { label: "Certificate Issued", completed: false, current: false },
+  ];
+
+  const quickActions = [
+    { 
+      icon: FileText, 
+      label: "View Application", 
+      href: "/driver/application",
+      description: "Check your application details"
+    },
+    { 
+      icon: Upload, 
+      label: "Upload Documents", 
+      href: "/driver/documents",
+      description: "Add required documents"
+    },
+    { 
+      icon: Award, 
+      label: "My Certificates", 
+      href: "/driver/certificates",
+      description: "View issued certificates"
+    },
+  ];
+
+  return (
+    <DashboardLayout role="driver" userName="Rahul Kumar">
+      <div className="space-y-6">
+        {/* Welcome Section */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">Welcome back, Rahul!</h1>
+            <p className="text-muted-foreground">Track your certification progress and manage your documents.</p>
+          </div>
+          <Link to="/driver/application">
+            <Button>
+              View Application
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          </Link>
+        </div>
+
+        {/* Application Status Card */}
+        <Card className="border-primary/20">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-primary" />
+                Application Status
+              </CardTitle>
+              <Badge variant="pending">In Progress</Badge>
+            </div>
+            <CardDescription>Your certification application is being processed</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-4">
+              <div className="flex items-center justify-between text-sm mb-2">
+                <span className="text-muted-foreground">Overall Progress</span>
+                <span className="font-medium">{progress}%</span>
+              </div>
+              <Progress value={progress} className="h-2" />
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-2 md:gap-0">
+              {statusSteps.map((step, index) => (
+                <div key={index} className="flex-1 flex items-center">
+                  <div className="flex items-center gap-2 md:flex-col md:items-center md:text-center flex-1">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        step.completed
+                          ? "bg-success text-success-foreground"
+                          : step.current
+                          ? "bg-primary text-primary-foreground animate-pulse"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {step.completed ? (
+                        <CheckCircle2 className="w-4 h-4" />
+                      ) : (
+                        <span className="text-xs font-medium">{index + 1}</span>
+                      )}
+                    </div>
+                    <span className={`text-xs ${step.current ? "font-medium" : "text-muted-foreground"}`}>
+                      {step.label}
+                    </span>
+                  </div>
+                  {index < statusSteps.length - 1 && (
+                    <div className="hidden md:block flex-shrink-0 w-full h-0.5 bg-border mx-2" />
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quick Actions */}
+        <div className="grid md:grid-cols-3 gap-4">
+          {quickActions.map((action, index) => (
+            <Link key={index} to={action.href}>
+              <Card className="h-full hover:border-primary/50 transition-colors cursor-pointer group">
+                <CardContent className="pt-6">
+                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                    <action.icon className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-semibold mb-1">{action.label}</h3>
+                  <p className="text-sm text-muted-foreground">{action.description}</p>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+
+        {/* Info Cards */}
+        <div className="grid md:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Car className="w-5 h-5" />
+                Vehicle Class Applied
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2">
+                <Badge>4 Wheeler</Badge>
+                <Badge variant="outline">Light Commercial Vehicle</Badge>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-warning" />
+                Action Required
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-3">
+                Please visit the assigned driving school for your skill test.
+              </p>
+              <div className="p-3 bg-muted rounded-lg">
+                <p className="text-sm font-medium">ABC Driving School</p>
+                <p className="text-xs text-muted-foreground">123 Main Road, Delhi - 110001</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </DashboardLayout>
+  );
+};
+
+export default DriverDashboard;
