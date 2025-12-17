@@ -4,7 +4,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Users, ClipboardCheck, Clock, CheckCircle2, XCircle, GraduationCap, Eye } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { 
+  Users, ClipboardCheck, Clock, CheckCircle2, XCircle, GraduationCap, Eye, 
+  Phone, MapPin, Calendar, User, FileText, Upload, RefreshCw 
+} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -24,6 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Application {
   id: string;
@@ -31,7 +36,33 @@ interface Application {
   highest_qualification: string | null;
   documents: any;
   education_verified: boolean;
-  drivers?: { first_name: string; last_name: string } | null;
+  date_of_birth: string | null;
+  gender: string | null;
+  aadhaar_number: string | null;
+  current_address: string | null;
+  permanent_address: string | null;
+  licence_number: string | null;
+  licence_type: string | null;
+  vehicle_classes: string[] | null;
+  notes: string | null;
+  drivers?: { 
+    first_name: string; 
+    last_name: string; 
+    phone: string;
+    address: string;
+    district: string;
+    state: string;
+    pin_code: string;
+  } | null;
+}
+
+interface DocumentUrls {
+  photograph?: string;
+  aadhaarId?: string;
+  licenceFront?: string;
+  licenceBack?: string;
+  policeClearance?: string;
+  educationCertificate?: string;
 }
 
 const VerificationAgentDashboard = () => {
@@ -42,8 +73,10 @@ const VerificationAgentDashboard = () => {
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [isReuploadDialogOpen, setIsReuploadDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
-  const [documentUrl, setDocumentUrl] = useState<string | null>(null);
+  const [reuploadReason, setReuploadReason] = useState("");
+  const [documentUrls, setDocumentUrls] = useState<DocumentUrls>({});
   const [processing, setProcessing] = useState(false);
 
   const fetchData = async () => {
@@ -58,13 +91,12 @@ const VerificationAgentDashboard = () => {
     
     if (partner) {
       setPartnerData(partner);
-      // Fetch all applications that need education verification
       const { data: apps, error } = await supabase
         .from("applications")
-        .select(`*, drivers:driver_id (first_name, last_name)`)
+        .select(`*, drivers:driver_id (first_name, last_name, phone, address, district, state, pin_code)`)
         .not("highest_qualification", "is", null);
       
-      console.log("Fetched applications:", apps, error);
+      if (error) console.error("Error fetching applications:", error);
       setApplications(apps || []);
     }
     setLoading(false);
@@ -76,24 +108,38 @@ const VerificationAgentDashboard = () => {
   const completedVerifications = applications.filter(app => app.education_verified);
 
   const stats = [
-    { label: "Assigned Applications", value: applications.length, icon: Users, color: "text-primary" },
+    { label: "Total Applications", value: applications.length, icon: Users, color: "text-primary" },
     { label: "Verified", value: completedVerifications.length, icon: CheckCircle2, color: "text-success" },
     { label: "Pending", value: pendingVerifications.length, icon: Clock, color: "text-warning" },
   ];
 
+  const loadDocumentUrls = async (documents: any) => {
+    if (!documents) {
+      setDocumentUrls({});
+      return;
+    }
+
+    const urls: DocumentUrls = {};
+    const docKeys = ['photograph', 'aadhaarId', 'licenceFront', 'licenceBack', 'policeClearance', 'educationCertificate'];
+    
+    for (const key of docKeys) {
+      if (documents[key]) {
+        const { data } = await supabase.storage
+          .from("application-documents")
+          .createSignedUrl(documents[key], 3600);
+        if (data?.signedUrl) {
+          urls[key as keyof DocumentUrls] = data.signedUrl;
+        }
+      }
+    }
+    
+    setDocumentUrls(urls);
+  };
+
   const handleViewDetails = async (app: Application) => {
     setSelectedApp(app);
     setIsSheetOpen(true);
-    
-    // Get signed URL for education document
-    if (app.documents?.education_certificate) {
-      const { data } = await supabase.storage
-        .from("application-documents")
-        .createSignedUrl(app.documents.education_certificate, 3600);
-      setDocumentUrl(data?.signedUrl || null);
-    } else {
-      setDocumentUrl(null);
-    }
+    await loadDocumentUrls(app.documents);
   };
 
   const handleApprove = async () => {
@@ -126,11 +172,14 @@ const VerificationAgentDashboard = () => {
     setProcessing(true);
     
     try {
+      const existingNotes = selectedApp.notes || "";
+      const newNote = `[Education Rejected - ${new Date().toLocaleDateString()}]: ${rejectionReason}`;
+      
       const { error } = await supabase
         .from("applications")
         .update({ 
           education_verified: false,
-          notes: `Education rejected: ${rejectionReason}`
+          notes: existingNotes ? `${existingNotes}\n${newNote}` : newNote
         })
         .eq("id", selectedApp.id);
 
@@ -148,6 +197,37 @@ const VerificationAgentDashboard = () => {
     }
   };
 
+  const handleRequestReupload = async () => {
+    if (!selectedApp || !reuploadReason.trim()) {
+      toast.error("Please provide a reason for re-upload request");
+      return;
+    }
+    setProcessing(true);
+    
+    try {
+      const existingNotes = selectedApp.notes || "";
+      const newNote = `[Re-upload Requested - ${new Date().toLocaleDateString()}]: ${reuploadReason}`;
+      
+      const { error } = await supabase
+        .from("applications")
+        .update({ 
+          notes: existingNotes ? `${existingNotes}\n${newNote}` : newNote
+        })
+        .eq("id", selectedApp.id);
+
+      if (error) throw error;
+
+      toast.success("Re-upload request sent to applicant");
+      setIsReuploadDialogOpen(false);
+      setReuploadReason("");
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to send re-upload request");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const getQualificationLabel = (value: string | null) => {
     const qualifications: Record<string, string> = {
       "below_10th": "Below 10th",
@@ -160,12 +240,39 @@ const VerificationAgentDashboard = () => {
     return value ? qualifications[value] || value : "Not specified";
   };
 
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "Not provided";
+    return new Date(dateStr).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric"
+    });
+  };
+
+  const DocumentImage = ({ url, label }: { url?: string; label: string }) => (
+    <div className="space-y-2">
+      <p className="text-sm font-medium">{label}</p>
+      {url ? (
+        <div className="space-y-2">
+          <img src={url} alt={label} className="w-full rounded-lg border max-h-48 object-contain bg-muted" />
+          <Button variant="outline" size="sm" className="w-full" asChild>
+            <a href={url} target="_blank" rel="noopener noreferrer">Open Full Size</a>
+          </Button>
+        </div>
+      ) : (
+        <div className="p-4 border border-dashed rounded-lg text-center text-muted-foreground text-sm">
+          Not uploaded
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <DashboardLayout role="verification-agent" userName={partnerData?.name || "Verification Agent"}>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Education Verification Portal</h1>
-          <p className="text-muted-foreground">Verify driver educational qualifications</p>
+          <p className="text-muted-foreground">Verify driver educational qualifications and documents</p>
         </div>
 
         <div className="grid md:grid-cols-3 gap-4">
@@ -192,7 +299,7 @@ const VerificationAgentDashboard = () => {
               <GraduationCap className="w-5 h-5" />
               Pending Verifications
             </CardTitle>
-            <CardDescription>Education certificates awaiting verification</CardDescription>
+            <CardDescription>Applications awaiting education verification</CardDescription>
           </CardHeader>
           <CardContent>
             {pendingVerifications.length === 0 ? (
@@ -210,10 +317,10 @@ const VerificationAgentDashboard = () => {
                       </div>
                       <div>
                         <p className="font-medium">
-                          {app.drivers?.first_name} {app.drivers?.last_name}
+                          {app.full_name || `${app.drivers?.first_name} ${app.drivers?.last_name}`}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Qualification: {getQualificationLabel(app.highest_qualification)}
+                          {getQualificationLabel(app.highest_qualification)} • {app.drivers?.phone || "No phone"}
                         </p>
                       </div>
                     </div>
@@ -221,7 +328,7 @@ const VerificationAgentDashboard = () => {
                       <Badge variant="secondary">Pending</Badge>
                       <Button size="sm" onClick={() => handleViewDetails(app)}>
                         <Eye className="w-4 h-4 mr-2" />
-                        Verify
+                        View Details
                       </Button>
                     </div>
                   </div>
@@ -250,14 +357,19 @@ const VerificationAgentDashboard = () => {
                       <CheckCircle2 className="w-5 h-5 text-success" />
                       <div>
                         <p className="font-medium">
-                          {app.drivers?.first_name} {app.drivers?.last_name}
+                          {app.full_name || `${app.drivers?.first_name} ${app.drivers?.last_name}`}
                         </p>
                         <p className="text-sm text-muted-foreground">
                           {getQualificationLabel(app.highest_qualification)}
                         </p>
                       </div>
                     </div>
-                    <Badge variant="success">Verified</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="success">Verified</Badge>
+                      <Button size="sm" variant="ghost" onClick={() => handleViewDetails(app)}>
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -266,68 +378,187 @@ const VerificationAgentDashboard = () => {
         </Card>
       </div>
 
-      {/* Verification Sheet */}
+      {/* Detailed View Sheet */}
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent className="sm:max-w-lg overflow-y-auto">
+        <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>Education Verification</SheetTitle>
+            <SheetTitle>Application Details</SheetTitle>
             <SheetDescription>
-              Verify the education certificate for {selectedApp?.drivers?.first_name} {selectedApp?.drivers?.last_name}
+              Complete applicant information for verification
             </SheetDescription>
           </SheetHeader>
           
-          <div className="space-y-6 py-6">
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Applicant Name</p>
-              <p className="text-muted-foreground">
-                {selectedApp?.drivers?.first_name} {selectedApp?.drivers?.last_name}
-              </p>
-            </div>
+          <Tabs defaultValue="personal" className="mt-6">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="personal">Personal Info</TabsTrigger>
+              <TabsTrigger value="documents">Documents</TabsTrigger>
+              <TabsTrigger value="licence">Licence</TabsTrigger>
+            </TabsList>
 
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Declared Qualification</p>
-              <p className="text-muted-foreground">
-                {getQualificationLabel(selectedApp?.highest_qualification || null)}
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Education Certificate</p>
-              {documentUrl ? (
-                <div className="space-y-2">
+            <TabsContent value="personal" className="space-y-4 mt-4">
+              {/* Photo */}
+              {documentUrls.photograph && (
+                <div className="flex justify-center">
                   <img 
-                    src={documentUrl} 
-                    alt="Education Certificate" 
-                    className="w-full rounded-lg border"
+                    src={documentUrls.photograph} 
+                    alt="Applicant Photo" 
+                    className="w-32 h-32 rounded-lg object-cover border-2"
                   />
-                  <Button variant="outline" size="sm" asChild>
-                    <a href={documentUrl} target="_blank" rel="noopener noreferrer">
-                      Open in New Tab
-                    </a>
-                  </Button>
                 </div>
-              ) : (
-                <p className="text-muted-foreground italic">No certificate uploaded</p>
               )}
-            </div>
-          </div>
 
-          <SheetFooter className="flex-col sm:flex-row gap-2">
-            <Button 
-              variant="destructive" 
-              onClick={() => setIsRejectDialogOpen(true)}
-              disabled={processing}
-            >
-              <XCircle className="w-4 h-4 mr-2" />
-              Reject
-            </Button>
-            <Button 
-              onClick={handleApprove}
-              disabled={processing}
-            >
-              <CheckCircle2 className="w-4 h-4 mr-2" />
-              {processing ? "Processing..." : "Approve"}
-            </Button>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <User className="w-3 h-3" /> Full Name
+                  </p>
+                  <p className="font-medium">{selectedApp?.full_name || `${selectedApp?.drivers?.first_name} ${selectedApp?.drivers?.last_name}`}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Phone className="w-3 h-3" /> Phone
+                  </p>
+                  <p className="font-medium">{selectedApp?.drivers?.phone || "Not provided"}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Calendar className="w-3 h-3" /> Date of Birth
+                  </p>
+                  <p className="font-medium">{formatDate(selectedApp?.date_of_birth || null)}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Gender</p>
+                  <p className="font-medium capitalize">{selectedApp?.gender || "Not specified"}</p>
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <p className="text-xs text-muted-foreground">Aadhaar Number</p>
+                  <p className="font-medium">{selectedApp?.aadhaar_number || "Not provided"}</p>
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <GraduationCap className="w-3 h-3" /> Highest Qualification
+                  </p>
+                  <Badge variant="outline" className="text-sm">
+                    {getQualificationLabel(selectedApp?.highest_qualification || null)}
+                  </Badge>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-3">
+                <p className="text-sm font-medium flex items-center gap-1">
+                  <MapPin className="w-4 h-4" /> Addresses
+                </p>
+                <div className="space-y-2">
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">Current Address</p>
+                    <p className="text-sm">{selectedApp?.current_address || "Not provided"}</p>
+                    {selectedApp?.drivers && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {selectedApp.drivers.district}, {selectedApp.drivers.state} - {selectedApp.drivers.pin_code}
+                      </p>
+                    )}
+                  </div>
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">Permanent Address</p>
+                    <p className="text-sm">{selectedApp?.permanent_address || "Not provided"}</p>
+                  </div>
+                </div>
+              </div>
+
+              {selectedApp?.notes && (
+                <>
+                  <Separator />
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Notes</p>
+                    <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                      <p className="text-sm whitespace-pre-wrap">{selectedApp.notes}</p>
+                    </div>
+                  </div>
+                </>
+              )}
+            </TabsContent>
+
+            <TabsContent value="documents" className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <DocumentImage url={documentUrls.photograph} label="Passport Photo" />
+                <DocumentImage url={documentUrls.aadhaarId} label="Aadhaar Card" />
+                <DocumentImage url={documentUrls.educationCertificate} label="Education Certificate" />
+                <DocumentImage url={documentUrls.policeClearance} label="Police Clearance" />
+              </div>
+
+              <div className="pt-4">
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => setIsReuploadDialogOpen(true)}
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Request Document Re-upload
+                </Button>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="licence" className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Licence Number</p>
+                  <p className="font-medium">{selectedApp?.licence_number || "Not provided"}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Licence Type</p>
+                  <p className="font-medium capitalize">{selectedApp?.licence_type || "Not specified"}</p>
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <p className="text-xs text-muted-foreground">Vehicle Classes</p>
+                  <div className="flex flex-wrap gap-1">
+                    {selectedApp?.vehicle_classes?.length ? (
+                      selectedApp.vehicle_classes.map((vc, i) => (
+                        <Badge key={i} variant="secondary">{vc}</Badge>
+                      ))
+                    ) : (
+                      <p className="text-muted-foreground">Not specified</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-2 gap-4">
+                <DocumentImage url={documentUrls.licenceFront} label="Licence Front" />
+                <DocumentImage url={documentUrls.licenceBack} label="Licence Back" />
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <SheetFooter className="flex-col sm:flex-row gap-2 mt-6 pt-4 border-t">
+            {!selectedApp?.education_verified && (
+              <>
+                <Button 
+                  variant="destructive" 
+                  onClick={() => setIsRejectDialogOpen(true)}
+                  disabled={processing}
+                >
+                  <XCircle className="w-4 h-4 mr-2" />
+                  Reject
+                </Button>
+                <Button 
+                  onClick={handleApprove}
+                  disabled={processing}
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  {processing ? "Processing..." : "Approve Education"}
+                </Button>
+              </>
+            )}
+            {selectedApp?.education_verified && (
+              <Badge variant="success" className="text-base py-2 px-4">
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                Education Verified
+              </Badge>
+            )}
           </SheetFooter>
         </SheetContent>
       </Sheet>
@@ -336,7 +567,7 @@ const VerificationAgentDashboard = () => {
       <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reject Verification</DialogTitle>
+            <DialogTitle>Reject Education Verification</DialogTitle>
             <DialogDescription>
               Please provide a reason for rejecting this education verification
             </DialogDescription>
@@ -355,6 +586,35 @@ const VerificationAgentDashboard = () => {
             </Button>
             <Button variant="destructive" onClick={handleReject} disabled={processing}>
               {processing ? "Processing..." : "Confirm Rejection"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Re-upload Request Dialog */}
+      <Dialog open={isReuploadDialogOpen} onOpenChange={setIsReuploadDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request Document Re-upload</DialogTitle>
+            <DialogDescription>
+              Specify which documents need to be re-uploaded and why
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Textarea
+              placeholder="e.g., Education certificate is blurry, please upload a clear image..."
+              value={reuploadReason}
+              onChange={(e) => setReuploadReason(e.target.value)}
+              rows={4}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsReuploadDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleRequestReupload} disabled={processing}>
+              <Upload className="w-4 h-4 mr-2" />
+              {processing ? "Sending..." : "Send Request"}
             </Button>
           </DialogFooter>
         </DialogContent>
