@@ -275,53 +275,21 @@ const AdminDashboard = () => {
     }
 
     try {
-      // Create auth user for partner
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        phone: `+91${partnerForm.contactNumber.replace(/\D/g, "")}`,
-        phone_confirm: true,
+      // Create partner record - admin will use "Set Password" to create auth credentials
+      const { error } = await supabase.from("partners").insert({
+        partner_type: partnerType,
+        name: partnerForm.name,
+        address: partnerForm.address,
+        contact_number: partnerForm.contactNumber,
+        email: partnerForm.email || null,
+        gst: partnerForm.gst || null,
+        district: partnerForm.district,
+        state: partnerForm.state,
       });
 
-      if (authError) {
-        // If admin API not available, just create partner without auth
-        const { error } = await supabase.from("partners").insert({
-          partner_type: partnerType,
-          name: partnerForm.name,
-          address: partnerForm.address,
-          contact_number: partnerForm.contactNumber,
-          email: partnerForm.email || null,
-          gst: partnerForm.gst || null,
-          district: partnerForm.district,
-          state: partnerForm.state,
-        });
+      if (error) throw error;
 
-        if (error) throw error;
-      } else if (authData.user) {
-        // Insert role and partner
-        const roleMap: Record<string, "admin" | "company_verifier" | "driver" | "driving_school" | "medical_lab" | "verification_agent"> = {
-          driving_school: "driving_school",
-          medical_lab: "medical_lab",
-          verification_agent: "verification_agent",
-        };
-        
-        await supabase.from("user_roles").insert({
-          user_id: authData.user.id,
-          role: roleMap[partnerType] || "driving_school",
-        });
-
-        await supabase.from("partners").insert({
-          user_id: authData.user.id,
-          partner_type: partnerType,
-          name: partnerForm.name,
-          address: partnerForm.address,
-          contact_number: partnerForm.contactNumber,
-          email: partnerForm.email || null,
-          gst: partnerForm.gst || null,
-          district: partnerForm.district,
-          state: partnerForm.state,
-        });
-      }
-
-      toast.success("Partner added successfully");
+      toast.success("Partner added successfully. Use 'Set Password' to create login credentials.");
       setIsPartnerSheetOpen(false);
       setPartnerForm({ name: "", address: "", contactNumber: "", email: "", gst: "", district: "", state: "" });
       setPartnerType("");
