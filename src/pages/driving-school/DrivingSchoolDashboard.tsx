@@ -9,7 +9,8 @@ import {
   CheckCircle2,
   AlertCircle,
   FileText,
-  ArrowRight
+  ArrowRight,
+  GraduationCap
 } from "lucide-react";
 
 const DrivingSchoolDashboard = () => {
@@ -19,11 +20,18 @@ const DrivingSchoolDashboard = () => {
     { label: "Pending Tests", value: 6, icon: Clock, color: "text-warning" },
   ];
 
+  const verificationChecklist = [
+    { label: "Physical Presence Verified", key: "presence" },
+    { label: "Original DL Verified", key: "dl" },
+    { label: "Police Clearance Checked", key: "police" },
+    { label: "Educational Qualification Verified", key: "education" },
+  ];
+
   const pendingDrivers = [
-    { id: 1, name: "Rahul Kumar", vehicleClass: "4 Wheeler", date: "2024-01-15", status: "pending" },
-    { id: 2, name: "Amit Singh", vehicleClass: "Heavy Truck", date: "2024-01-14", status: "pending" },
-    { id: 3, name: "Priya Sharma", vehicleClass: "2 Wheeler", date: "2024-01-14", status: "scheduled" },
-    { id: 4, name: "Vikram Patel", vehicleClass: "LCV", date: "2024-01-13", status: "pending" },
+    { id: 1, name: "Rahul Kumar", vehicleClass: "4 Wheeler", date: "2024-01-15", status: "pending", educationVerified: false },
+    { id: 2, name: "Amit Singh", vehicleClass: "Heavy Truck", date: "2024-01-14", status: "pending", educationVerified: true },
+    { id: 3, name: "Priya Sharma", vehicleClass: "2 Wheeler", date: "2024-01-14", status: "scheduled", educationVerified: true },
+    { id: 4, name: "Vikram Patel", vehicleClass: "LCV", date: "2024-01-13", status: "pending", educationVerified: false },
   ];
 
   return (
@@ -89,11 +97,35 @@ const DrivingSchoolDashboard = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1" title={driver.educationVerified ? "Education Verified" : "Education Pending"}>
+                      <GraduationCap className={`w-4 h-4 ${driver.educationVerified ? "text-success" : "text-warning"}`} />
+                    </div>
                     <Badge variant={driver.status === "scheduled" ? "info" : "pending"}>
                       {driver.status === "scheduled" ? "Scheduled" : "Pending"}
                     </Badge>
                     <Button size="sm">Start Test</Button>
                   </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Verification Checklist Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <ClipboardCheck className="w-5 h-5" />
+              Verification Checklist
+            </CardTitle>
+            <CardDescription>Items to verify for each driver before skill test</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid md:grid-cols-2 gap-3">
+              {verificationChecklist.map((item, index) => (
+                <div key={index} className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+                  <CheckCircle2 className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm">{item.label}</span>
                 </div>
               ))}
             </div>

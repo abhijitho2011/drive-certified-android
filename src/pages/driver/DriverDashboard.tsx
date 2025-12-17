@@ -28,6 +28,13 @@ const DriverDashboard = () => {
     { label: "Certificate Issued", completed: false, current: false },
   ];
 
+  const requiredDocuments = [
+    { label: "Driving License", uploaded: true },
+    { label: "Aadhaar / ID", uploaded: true },
+    { label: "Police Clearance Certificate", uploaded: false },
+    { label: "Educational Qualification", uploaded: false },
+  ];
+
   const quickActions = [
     { 
       icon: FileText, 
@@ -156,21 +163,47 @@ const DriverDashboard = () => {
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-warning" />
-                Action Required
+                <FileText className="w-5 h-5" />
+                Document Status
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground mb-3">
-                Please visit the assigned driving school for your skill test.
-              </p>
-              <div className="p-3 bg-muted rounded-lg">
-                <p className="text-sm font-medium">ABC Driving School</p>
-                <p className="text-xs text-muted-foreground">123 Main Road, Delhi - 110001</p>
+              <div className="space-y-2">
+                {requiredDocuments.map((doc, index) => (
+                  <div key={index} className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{doc.label}</span>
+                    {doc.uploaded ? (
+                      <CheckCircle2 className="w-4 h-4 text-success" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-warning" />
+                    )}
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
         </div>
+
+        {/* Action Required */}
+        <Card className="border-warning/30 bg-warning/5">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-lg bg-warning/20 flex items-center justify-center">
+                <AlertCircle className="w-5 h-5 text-warning" />
+              </div>
+              <div>
+                <h3 className="font-semibold mb-1">Action Required</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Please visit the assigned driving school for your skill test.
+                </p>
+                <div className="p-3 bg-background rounded-lg">
+                  <p className="text-sm font-medium">ABC Driving School</p>
+                  <p className="text-xs text-muted-foreground">123 Main Road, Delhi - 110001</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   );
