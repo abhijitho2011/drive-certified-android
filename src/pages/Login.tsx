@@ -37,6 +37,9 @@ const Login = () => {
       case "company_verifier":
         navigate("/company");
         break;
+      case "verification_agent":
+        navigate("/verification-agent");
+        break;
       case "driver":
       default:
         navigate("/driver");

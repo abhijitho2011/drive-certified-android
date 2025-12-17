@@ -16,6 +16,7 @@ import DrivingSchoolDashboard from "./pages/driving-school/DrivingSchoolDashboar
 import MedicalLabDashboard from "./pages/medical-lab/MedicalLabDashboard";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import CompanyDashboard from "./pages/company/CompanyDashboard";
+import VerificationAgentDashboard from "./pages/verification-agent/VerificationAgentDashboard";
 import TrafficTestPortal from "./pages/TrafficTestPortal";
 import NotFound from "./pages/NotFound";
 
@@ -51,6 +52,10 @@ const App = () => (
             <Route path="/medical-lab" element={<MedicalLabDashboard />} />
             <Route path="/medical-lab/drivers" element={<MedicalLabDashboard />} />
             <Route path="/medical-lab/reports" element={<MedicalLabDashboard />} />
+            
+            {/* Verification Agent Routes */}
+            <Route path="/verification-agent" element={<VerificationAgentDashboard />} />
+            <Route path="/verification-agent/verifications" element={<VerificationAgentDashboard />} />
             
             {/* Admin Routes */}
             <Route path="/admin" element={<AdminDashboard />} />
