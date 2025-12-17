@@ -127,7 +127,7 @@ const DriverDashboard = () => {
             <h1 className="text-2xl font-bold">Welcome, {driverData?.first_name || user?.user_metadata?.first_name || "Driver"}!</h1>
             <p className="text-muted-foreground">Track your certification progress and manage your documents.</p>
           </div>
-          <Link to="/driver/application">
+          <Link to={application ? "/driver/application" : "/driver/apply"}>
             <Button>
               {application ? "View Application" : "Start Application"}
               <ArrowRight className="w-4 h-4" />
@@ -295,7 +295,7 @@ const DriverDashboard = () => {
                   <p className="text-sm text-muted-foreground mb-3">
                     You haven't started your certification application yet. Begin your journey to become a certified driver.
                   </p>
-                  <Link to="/driver/application">
+                  <Link to="/driver/apply">
                     <Button size="sm">Start Application</Button>
                   </Link>
                 </div>

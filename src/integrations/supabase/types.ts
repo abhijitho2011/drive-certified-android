@@ -16,52 +16,127 @@ export type Database = {
     Tables: {
       applications: {
         Row: {
+          aadhaar_number: string | null
           admin_approved: boolean | null
           certificate_number: string | null
+          certification_purpose: string | null
+          certification_vehicle_class: string | null
           created_at: string | null
+          current_address: string | null
+          date_of_birth: string | null
+          declaration_date: string | null
+          declaration_signed: boolean | null
+          documents: Json | null
           driver_id: string
           driving_school_id: string | null
           driving_test_passed: boolean | null
+          driving_test_slot: string | null
+          driving_validity_date: string | null
           education_verified: boolean | null
+          full_name: string | null
+          gender: string | null
+          hazardous_endorsement: boolean | null
           id: string
           identity_verified: boolean | null
+          issuing_rto: string | null
+          licence_expiry_date: string | null
+          licence_issue_date: string | null
+          licence_number: string | null
+          licence_type: string | null
           medical_lab_id: string | null
           medical_test_passed: boolean | null
+          medical_test_slot: string | null
+          medical_validity_date: string | null
           notes: string | null
+          permanent_address: string | null
+          skill_grade: string | null
           status: string | null
+          test_district: string | null
+          test_state: string | null
           updated_at: string | null
+          vehicle_classes: string[] | null
         }
         Insert: {
+          aadhaar_number?: string | null
           admin_approved?: boolean | null
           certificate_number?: string | null
+          certification_purpose?: string | null
+          certification_vehicle_class?: string | null
           created_at?: string | null
+          current_address?: string | null
+          date_of_birth?: string | null
+          declaration_date?: string | null
+          declaration_signed?: boolean | null
+          documents?: Json | null
           driver_id: string
           driving_school_id?: string | null
           driving_test_passed?: boolean | null
+          driving_test_slot?: string | null
+          driving_validity_date?: string | null
           education_verified?: boolean | null
+          full_name?: string | null
+          gender?: string | null
+          hazardous_endorsement?: boolean | null
           id?: string
           identity_verified?: boolean | null
+          issuing_rto?: string | null
+          licence_expiry_date?: string | null
+          licence_issue_date?: string | null
+          licence_number?: string | null
+          licence_type?: string | null
           medical_lab_id?: string | null
           medical_test_passed?: boolean | null
+          medical_test_slot?: string | null
+          medical_validity_date?: string | null
           notes?: string | null
+          permanent_address?: string | null
+          skill_grade?: string | null
           status?: string | null
+          test_district?: string | null
+          test_state?: string | null
           updated_at?: string | null
+          vehicle_classes?: string[] | null
         }
         Update: {
+          aadhaar_number?: string | null
           admin_approved?: boolean | null
           certificate_number?: string | null
+          certification_purpose?: string | null
+          certification_vehicle_class?: string | null
           created_at?: string | null
+          current_address?: string | null
+          date_of_birth?: string | null
+          declaration_date?: string | null
+          declaration_signed?: boolean | null
+          documents?: Json | null
           driver_id?: string
           driving_school_id?: string | null
           driving_test_passed?: boolean | null
+          driving_test_slot?: string | null
+          driving_validity_date?: string | null
           education_verified?: boolean | null
+          full_name?: string | null
+          gender?: string | null
+          hazardous_endorsement?: boolean | null
           id?: string
           identity_verified?: boolean | null
+          issuing_rto?: string | null
+          licence_expiry_date?: string | null
+          licence_issue_date?: string | null
+          licence_number?: string | null
+          licence_type?: string | null
           medical_lab_id?: string | null
           medical_test_passed?: boolean | null
+          medical_test_slot?: string | null
+          medical_validity_date?: string | null
           notes?: string | null
+          permanent_address?: string | null
+          skill_grade?: string | null
           status?: string | null
+          test_district?: string | null
+          test_state?: string | null
           updated_at?: string | null
+          vehicle_classes?: string[] | null
         }
         Relationships: [
           {
