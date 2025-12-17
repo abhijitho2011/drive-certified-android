@@ -3,55 +3,41 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
-  Users, 
-  ClipboardCheck, 
-  Clock, 
-  CheckCircle2,
-  FileText,
-  ArrowRight,
-  GraduationCap
-} from "lucide-react";
+import { Users, ClipboardCheck, Clock, CheckCircle2, GraduationCap } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import DrivingTestSheet from "@/components/driving-school/DrivingTestSheet";
 
 const DrivingSchoolDashboard = () => {
   const { user } = useAuth();
-  const [partnerData, setPartnerData] = useState<{ name: string } | null>(null);
+  const [partnerData, setPartnerData] = useState<{ id: string; name: string } | null>(null);
   const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedApp, setSelectedApp] = useState<any>(null);
+  const [isTestOpen, setIsTestOpen] = useState(false);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!user) return;
-      
-      // Fetch partner data
-      const { data: partner } = await supabase
-        .from("partners")
-        .select("id, name")
-        .eq("user_id", user.id)
-        .eq("partner_type", "driving_school")
-        .maybeSingle();
-      
-      if (partner) {
-        setPartnerData(partner);
-        
-        // Fetch assigned applications
-        const { data: apps } = await supabase
-          .from("applications")
-          .select(`
-            *,
-            drivers:driver_id (first_name, last_name)
-          `)
-          .eq("driving_school_id", partner.id);
-        
-        setApplications(apps || []);
-      }
-      setLoading(false);
-    };
+  const fetchData = async () => {
+    if (!user) return;
+    
+    const { data: partner } = await supabase
+      .from("partners")
+      .select("id, name")
+      .eq("user_id", user.id)
+      .eq("partner_type", "driving_school")
+      .maybeSingle();
+    
+    if (partner) {
+      setPartnerData(partner);
+      const { data: apps } = await supabase
+        .from("applications")
+        .select(`*, drivers:driver_id (first_name, last_name)`)
+        .eq("driving_school_id", partner.id);
+      setApplications(apps || []);
+    }
+    setLoading(false);
+  };
 
-    fetchData();
-  }, [user]);
+  useEffect(() => { fetchData(); }, [user]);
 
   const pendingTests = applications.filter(app => !app.driving_test_passed);
   const completedTests = applications.filter(app => app.driving_test_passed);
@@ -62,25 +48,14 @@ const DrivingSchoolDashboard = () => {
     { label: "Pending Tests", value: pendingTests.length, icon: Clock, color: "text-warning" },
   ];
 
-  const verificationChecklist = [
-    { label: "Physical Presence Verified", key: "presence" },
-    { label: "Original DL Verified", key: "dl" },
-    { label: "Police Clearance Checked", key: "police" },
-    { label: "Educational Qualification Verified", key: "education" },
-  ];
-
   return (
     <DashboardLayout role="driving-school" userName={partnerData?.name || "Driving School"}>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">Driving School Dashboard</h1>
-            <p className="text-muted-foreground">Manage driver evaluations and skill assessments.</p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold">Driving School Dashboard</h1>
+          <p className="text-muted-foreground">Conduct driver skill assessments and evaluations.</p>
         </div>
 
-        {/* Stats */}
         <div className="grid md:grid-cols-3 gap-4">
           {stats.map((stat, index) => (
             <Card key={index}>
@@ -99,30 +74,21 @@ const DrivingSchoolDashboard = () => {
           ))}
         </div>
 
-        {/* Pending Tests */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Pending Skill Tests</CardTitle>
-                <CardDescription>Drivers awaiting evaluation</CardDescription>
-              </div>
-            </div>
+            <CardTitle>Pending Skill Tests</CardTitle>
+            <CardDescription>Drivers awaiting evaluation</CardDescription>
           </CardHeader>
           <CardContent>
             {pendingTests.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p>No pending skill tests</p>
-                <p className="text-sm">Drivers will appear here when assigned to you</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {pendingTests.map((app) => (
-                  <div
-                    key={app.id}
-                    className="flex items-center justify-between p-4 bg-muted/50 rounded-lg hover:bg-muted transition-colors"
-                  >
+                  <div key={app.id} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                         <span className="text-sm font-semibold text-primary">
@@ -130,22 +96,17 @@ const DrivingSchoolDashboard = () => {
                         </span>
                       </div>
                       <div>
-                        <p className="font-medium">
-                          {app.drivers?.first_name} {app.drivers?.last_name}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Status: {app.status}
-                        </p>
+                        <p className="font-medium">{app.drivers?.first_name} {app.drivers?.last_name}</p>
+                        <p className="text-sm text-muted-foreground">Licence: {app.licence_number || "N/A"}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1" title={app.education_verified ? "Education Verified" : "Education Pending"}>
-                        <GraduationCap className={`w-4 h-4 ${app.education_verified ? "text-success" : "text-warning"}`} />
-                      </div>
                       <Badge variant={app.identity_verified ? "success" : "secondary"}>
                         {app.identity_verified ? "ID Verified" : "Pending"}
                       </Badge>
-                      <Button size="sm">Start Test</Button>
+                      <Button size="sm" onClick={() => { setSelectedApp(app); setIsTestOpen(true); }}>
+                        Start Test
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -154,66 +115,41 @@ const DrivingSchoolDashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Verification Checklist Card */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <ClipboardCheck className="w-5 h-5" />
-              Verification Checklist
-            </CardTitle>
-            <CardDescription>Items to verify for each driver before skill test</CardDescription>
+            <CardTitle>Completed Tests</CardTitle>
+            <CardDescription>Recently evaluated drivers</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid md:grid-cols-2 gap-3">
-              {verificationChecklist.map((item, index) => (
-                <div key={index} className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
-                  <CheckCircle2 className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm">{item.label}</span>
-                </div>
-              ))}
-            </div>
+            {completedTests.length === 0 ? (
+              <p className="text-center py-4 text-muted-foreground">No completed tests yet</p>
+            ) : (
+              <div className="space-y-3">
+                {completedTests.map((app) => (
+                  <div key={app.id} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-4">
+                      <CheckCircle2 className="w-5 h-5 text-success" />
+                      <div>
+                        <p className="font-medium">{app.drivers?.first_name} {app.drivers?.last_name}</p>
+                        <p className="text-sm text-muted-foreground">Grade: {app.skill_grade || "N/A"}</p>
+                      </div>
+                    </div>
+                    <Badge variant="success">Passed</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
-
-        {/* Quick Actions */}
-        <div className="grid md:grid-cols-2 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
-                  <Clock className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold mb-1">Pending Submissions</h3>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    {completedTests.length > 0 
-                      ? `You have ${completedTests.length} completed tests.`
-                      : "No tests completed yet."}
-                  </p>
-                  <Button size="sm" variant="outline">View History</Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-lg bg-success/20 flex items-center justify-center">
-                  <CheckCircle2 className="w-5 h-5 text-success" />
-                </div>
-                <div>
-                  <h3 className="font-semibold mb-1">Recently Completed</h3>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    {completedTests.length} skill tests completed.
-                  </p>
-                  <Button size="sm" variant="outline">View Details</Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
       </div>
+
+      <DrivingTestSheet
+        open={isTestOpen}
+        onOpenChange={setIsTestOpen}
+        application={selectedApp}
+        partnerId={partnerData?.id || ""}
+        onComplete={fetchData}
+      />
     </DashboardLayout>
   );
 };
