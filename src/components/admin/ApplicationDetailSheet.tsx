@@ -45,6 +45,9 @@ interface Application {
   education_verified: boolean;
   admin_approved: boolean;
   certificate_number: string | null;
+  certificate_expiry_date: string | null;
+  certificate_status: string | null;
+  renewal_type: string | null;
   skill_grade: string | null;
   created_at: string;
   full_name: string | null;
@@ -55,6 +58,7 @@ interface Application {
   permanent_address: string | null;
   licence_number: string | null;
   licence_type: string | null;
+  licence_expiry_date: string | null;
   vehicle_classes: string[] | null;
   certification_vehicle_class: string | null;
   certification_purpose: string | null;
@@ -130,12 +134,26 @@ const ApplicationDetailSheet = ({
     try {
       const certificateNumber = `MOT-${Date.now().toString(36).toUpperCase()}`;
       
+      // Calculate expiry date: 1 year from now OR licence expiry (whichever is earlier)
+      const oneYearFromNow = new Date();
+      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+      
+      let expiryDate = oneYearFromNow;
+      if (application.licence_expiry_date) {
+        const licenceExpiry = new Date(application.licence_expiry_date);
+        if (licenceExpiry < oneYearFromNow) {
+          expiryDate = licenceExpiry;
+        }
+      }
+      
       const { error } = await supabase
         .from("applications")
         .update({
           status: "approved",
           admin_approved: true,
           certificate_number: certificateNumber,
+          certificate_expiry_date: expiryDate.toISOString().split('T')[0],
+          certificate_status: "active",
         })
         .eq("id", application.id);
 
@@ -417,15 +435,30 @@ const ApplicationDetailSheet = ({
 
               {/* Certificate Info */}
               {application.certificate_number && (
-                <Card className="border-green-200 bg-green-50 dark:bg-green-950/20">
+                <Card className={`border-green-200 ${application.certificate_status === 'expired' ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200' : 'bg-green-50 dark:bg-green-950/20'}`}>
                   <CardContent className="pt-4">
                     <div className="flex items-center gap-3">
-                      <CheckCircle className="w-8 h-8 text-green-500" />
-                      <div>
-                        <p className="font-medium">Certificate Issued</p>
+                      <CheckCircle className={`w-8 h-8 ${application.certificate_status === 'expired' ? 'text-amber-500' : 'text-green-500'}`} />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="font-medium">Certificate Issued</p>
+                          <Badge variant={application.certificate_status === 'expired' ? 'destructive' : 'secondary'}>
+                            {application.certificate_status === 'expired' ? 'Expired' : 'Active'}
+                          </Badge>
+                        </div>
                         <p className="text-sm text-muted-foreground">
                           Certificate Number: {application.certificate_number}
                         </p>
+                        {application.certificate_expiry_date && (
+                          <p className="text-sm text-muted-foreground">
+                            Expires: {new Date(application.certificate_expiry_date).toLocaleDateString()}
+                            {application.renewal_type && (
+                              <span className="ml-2 text-amber-600">
+                                (Renewal needed: {application.renewal_type === 'medical' ? 'Medical Test' : 'Driving Test'})
+                              </span>
+                            )}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </CardContent>
