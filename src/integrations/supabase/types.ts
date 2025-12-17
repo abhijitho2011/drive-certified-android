@@ -290,6 +290,273 @@ export type Database = {
         }
         Relationships: []
       }
+      driving_test_results: {
+        Row: {
+          application_id: string
+          brake_system_score: number | null
+          created_at: string
+          defensive_driving_score: number | null
+          diagnosis_score: number | null
+          driving_school_id: string
+          emergency_handling_score: number | null
+          engine_fluids_score: number | null
+          hill_driving_score: number | null
+          id: string
+          identity_photo_match: boolean | null
+          identity_status: string | null
+          identity_verified: boolean | null
+          inspection_notes: string | null
+          inspection_test_passed: boolean | null
+          inspection_test_total: number | null
+          licence_verified: boolean | null
+          lights_safety_score: number | null
+          overall_passed: boolean | null
+          parallel_parking_score: number | null
+          police_clearance_verified: boolean | null
+          practical_notes: string | null
+          practical_test_passed: boolean | null
+          practical_test_total: number | null
+          skill_grade: string | null
+          submitted_at: string | null
+          test_date: string | null
+          tested_by: string | null
+          total_score: number | null
+          traffic_test_answers: Json | null
+          traffic_test_passed: boolean | null
+          traffic_test_score: number | null
+          traffic_test_total: number | null
+          tyres_score: number | null
+          vehicle_control_score: number | null
+          verification_video_url: string | null
+        }
+        Insert: {
+          application_id: string
+          brake_system_score?: number | null
+          created_at?: string
+          defensive_driving_score?: number | null
+          diagnosis_score?: number | null
+          driving_school_id: string
+          emergency_handling_score?: number | null
+          engine_fluids_score?: number | null
+          hill_driving_score?: number | null
+          id?: string
+          identity_photo_match?: boolean | null
+          identity_status?: string | null
+          identity_verified?: boolean | null
+          inspection_notes?: string | null
+          inspection_test_passed?: boolean | null
+          inspection_test_total?: number | null
+          licence_verified?: boolean | null
+          lights_safety_score?: number | null
+          overall_passed?: boolean | null
+          parallel_parking_score?: number | null
+          police_clearance_verified?: boolean | null
+          practical_notes?: string | null
+          practical_test_passed?: boolean | null
+          practical_test_total?: number | null
+          skill_grade?: string | null
+          submitted_at?: string | null
+          test_date?: string | null
+          tested_by?: string | null
+          total_score?: number | null
+          traffic_test_answers?: Json | null
+          traffic_test_passed?: boolean | null
+          traffic_test_score?: number | null
+          traffic_test_total?: number | null
+          tyres_score?: number | null
+          vehicle_control_score?: number | null
+          verification_video_url?: string | null
+        }
+        Update: {
+          application_id?: string
+          brake_system_score?: number | null
+          created_at?: string
+          defensive_driving_score?: number | null
+          diagnosis_score?: number | null
+          driving_school_id?: string
+          emergency_handling_score?: number | null
+          engine_fluids_score?: number | null
+          hill_driving_score?: number | null
+          id?: string
+          identity_photo_match?: boolean | null
+          identity_status?: string | null
+          identity_verified?: boolean | null
+          inspection_notes?: string | null
+          inspection_test_passed?: boolean | null
+          inspection_test_total?: number | null
+          licence_verified?: boolean | null
+          lights_safety_score?: number | null
+          overall_passed?: boolean | null
+          parallel_parking_score?: number | null
+          police_clearance_verified?: boolean | null
+          practical_notes?: string | null
+          practical_test_passed?: boolean | null
+          practical_test_total?: number | null
+          skill_grade?: string | null
+          submitted_at?: string | null
+          test_date?: string | null
+          tested_by?: string | null
+          total_score?: number | null
+          traffic_test_answers?: Json | null
+          traffic_test_passed?: boolean | null
+          traffic_test_score?: number | null
+          traffic_test_total?: number | null
+          tyres_score?: number | null
+          vehicle_control_score?: number | null
+          verification_video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driving_test_results_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: true
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driving_test_results_driving_school_id_fkey"
+            columns: ["driving_school_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medical_test_results: {
+        Row: {
+          alcohol_level: number | null
+          alcohol_result: string | null
+          alcohol_test_method: string | null
+          amphetamines_result: string | null
+          application_id: string
+          barbiturates_result: string | null
+          benzodiazepines_result: string | null
+          blood_pressure_diastolic: number | null
+          blood_pressure_status: string | null
+          blood_pressure_systolic: number | null
+          bmi: number | null
+          bmi_status: string | null
+          cannabis_result: string | null
+          cocaine_result: string | null
+          color_blindness: boolean | null
+          created_at: string
+          drug_notes: string | null
+          drug_screening_passed: boolean | null
+          drug_test_date: string | null
+          fitness_status: string | null
+          fitness_validity_months: number | null
+          health_notes: string | null
+          health_screening_passed: boolean | null
+          hearing_status: string | null
+          heart_rate: number | null
+          heart_rate_status: string | null
+          id: string
+          mdma_result: string | null
+          medical_lab_id: string
+          methamphetamine_result: string | null
+          opioids_result: string | null
+          submitted_at: string | null
+          test_date: string | null
+          tested_by: string | null
+          vision_left: string | null
+          vision_right: string | null
+          vision_status: string | null
+        }
+        Insert: {
+          alcohol_level?: number | null
+          alcohol_result?: string | null
+          alcohol_test_method?: string | null
+          amphetamines_result?: string | null
+          application_id: string
+          barbiturates_result?: string | null
+          benzodiazepines_result?: string | null
+          blood_pressure_diastolic?: number | null
+          blood_pressure_status?: string | null
+          blood_pressure_systolic?: number | null
+          bmi?: number | null
+          bmi_status?: string | null
+          cannabis_result?: string | null
+          cocaine_result?: string | null
+          color_blindness?: boolean | null
+          created_at?: string
+          drug_notes?: string | null
+          drug_screening_passed?: boolean | null
+          drug_test_date?: string | null
+          fitness_status?: string | null
+          fitness_validity_months?: number | null
+          health_notes?: string | null
+          health_screening_passed?: boolean | null
+          hearing_status?: string | null
+          heart_rate?: number | null
+          heart_rate_status?: string | null
+          id?: string
+          mdma_result?: string | null
+          medical_lab_id: string
+          methamphetamine_result?: string | null
+          opioids_result?: string | null
+          submitted_at?: string | null
+          test_date?: string | null
+          tested_by?: string | null
+          vision_left?: string | null
+          vision_right?: string | null
+          vision_status?: string | null
+        }
+        Update: {
+          alcohol_level?: number | null
+          alcohol_result?: string | null
+          alcohol_test_method?: string | null
+          amphetamines_result?: string | null
+          application_id?: string
+          barbiturates_result?: string | null
+          benzodiazepines_result?: string | null
+          blood_pressure_diastolic?: number | null
+          blood_pressure_status?: string | null
+          blood_pressure_systolic?: number | null
+          bmi?: number | null
+          bmi_status?: string | null
+          cannabis_result?: string | null
+          cocaine_result?: string | null
+          color_blindness?: boolean | null
+          created_at?: string
+          drug_notes?: string | null
+          drug_screening_passed?: boolean | null
+          drug_test_date?: string | null
+          fitness_status?: string | null
+          fitness_validity_months?: number | null
+          health_notes?: string | null
+          health_screening_passed?: boolean | null
+          hearing_status?: string | null
+          heart_rate?: number | null
+          heart_rate_status?: string | null
+          id?: string
+          mdma_result?: string | null
+          medical_lab_id?: string
+          methamphetamine_result?: string | null
+          opioids_result?: string | null
+          submitted_at?: string | null
+          test_date?: string | null
+          tested_by?: string | null
+          vision_left?: string | null
+          vision_right?: string | null
+          vision_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medical_test_results_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: true
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medical_test_results_medical_lab_id_fkey"
+            columns: ["medical_lab_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partners: {
         Row: {
           address: string
@@ -385,6 +652,48 @@ export type Database = {
           created_at?: string | null
           id?: string
           name?: string
+          status?: string | null
+        }
+        Relationships: []
+      }
+      traffic_law_questions: {
+        Row: {
+          category: string
+          correct_answer: string
+          created_at: string
+          id: string
+          is_hazardous_only: boolean | null
+          option_a: string
+          option_b: string
+          option_c: string
+          option_d: string
+          question: string
+          status: string | null
+        }
+        Insert: {
+          category?: string
+          correct_answer: string
+          created_at?: string
+          id?: string
+          is_hazardous_only?: boolean | null
+          option_a: string
+          option_b: string
+          option_c: string
+          option_d: string
+          question: string
+          status?: string | null
+        }
+        Update: {
+          category?: string
+          correct_answer?: string
+          created_at?: string
+          id?: string
+          is_hazardous_only?: boolean | null
+          option_a?: string
+          option_b?: string
+          option_c?: string
+          option_d?: string
+          question?: string
           status?: string | null
         }
         Relationships: []
