@@ -177,6 +177,50 @@ export type Database = {
           },
         ]
       }
+      company_users: {
+        Row: {
+          created_at: string | null
+          data_user_id: string
+          email: string
+          id: string
+          name: string
+          role: Database["public"]["Enums"]["company_user_role"]
+          status: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_user_id: string
+          email: string
+          id?: string
+          name: string
+          role?: Database["public"]["Enums"]["company_user_role"]
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data_user_id?: string
+          email?: string
+          id?: string
+          name?: string
+          role?: Database["public"]["Enums"]["company_user_role"]
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_users_data_user_id_fkey"
+            columns: ["data_user_id"]
+            isOneToOne: false
+            referencedRelation: "data_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       data_users: {
         Row: {
           address: string | null
@@ -835,6 +879,82 @@ export type Database = {
         }
         Relationships: []
       }
+      verification_logs: {
+        Row: {
+          application_id: string | null
+          certificate_number: string | null
+          company_user_id: string | null
+          created_at: string | null
+          data_user_id: string
+          driver_name: string | null
+          id: string
+          ip_address: string | null
+          result_details: Json | null
+          result_status: string
+          search_query: string
+          search_type: string
+          user_agent: string | null
+          verified_by_name: string
+          verified_by_role: string | null
+        }
+        Insert: {
+          application_id?: string | null
+          certificate_number?: string | null
+          company_user_id?: string | null
+          created_at?: string | null
+          data_user_id: string
+          driver_name?: string | null
+          id?: string
+          ip_address?: string | null
+          result_details?: Json | null
+          result_status: string
+          search_query: string
+          search_type: string
+          user_agent?: string | null
+          verified_by_name: string
+          verified_by_role?: string | null
+        }
+        Update: {
+          application_id?: string | null
+          certificate_number?: string | null
+          company_user_id?: string | null
+          created_at?: string | null
+          data_user_id?: string
+          driver_name?: string | null
+          id?: string
+          ip_address?: string | null
+          result_details?: Json | null
+          result_status?: string
+          search_query?: string
+          search_type?: string
+          user_agent?: string | null
+          verified_by_name?: string
+          verified_by_role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verification_logs_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verification_logs_company_user_id_fkey"
+            columns: ["company_user_id"]
+            isOneToOne: false
+            referencedRelation: "company_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verification_logs_data_user_id_fkey"
+            columns: ["data_user_id"]
+            isOneToOne: false
+            referencedRelation: "data_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -856,6 +976,7 @@ export type Database = {
         | "medical_lab"
         | "company_verifier"
         | "verification_agent"
+      company_user_role: "admin" | "recruiter" | "compliance_officer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -991,6 +1112,7 @@ export const Constants = {
         "company_verifier",
         "verification_agent",
       ],
+      company_user_role: ["admin", "recruiter", "compliance_officer"],
     },
   },
 } as const
