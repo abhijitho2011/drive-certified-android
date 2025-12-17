@@ -662,6 +662,7 @@ export type Database = {
           correct_answer: string
           created_at: string
           id: string
+          image_url: string | null
           is_hazardous_only: boolean | null
           option_a: string
           option_b: string
@@ -675,6 +676,7 @@ export type Database = {
           correct_answer: string
           created_at?: string
           id?: string
+          image_url?: string | null
           is_hazardous_only?: boolean | null
           option_a: string
           option_b: string
@@ -688,6 +690,7 @@ export type Database = {
           correct_answer?: string
           created_at?: string
           id?: string
+          image_url?: string | null
           is_hazardous_only?: boolean | null
           option_a?: string
           option_b?: string

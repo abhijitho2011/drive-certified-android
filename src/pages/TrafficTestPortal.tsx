@@ -18,6 +18,7 @@ interface TrafficQuestion {
   option_c: string;
   option_d: string;
   correct_answer: string;
+  image_url?: string | null;
 }
 
 interface TestSession {
@@ -168,7 +169,7 @@ const TrafficTestPortal = () => {
       // Calculate score
       let score = 0;
       questions.forEach((q) => {
-        if (answers[q.id] === q.correct_answer) {
+        if (answers[q.id]?.toUpperCase() === q.correct_answer.toUpperCase()) {
           score++;
         }
       });
@@ -364,6 +365,15 @@ const TrafficTestPortal = () => {
                     </span>
                     <span className="flex-1">{q.question}</span>
                   </CardTitle>
+                  {q.image_url && (
+                    <div className="mt-3 flex justify-center">
+                      <img 
+                        src={q.image_url} 
+                        alt="Question image" 
+                        className="max-w-[200px] max-h-[150px] object-contain rounded border"
+                      />
+                    </div>
+                  )}
                 </CardHeader>
                 <CardContent>
                   <RadioGroup
