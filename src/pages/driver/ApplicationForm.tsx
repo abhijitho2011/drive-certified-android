@@ -283,7 +283,7 @@ const ApplicationForm = () => {
         medical_lab_id: formData.medicalLabId,
         driving_test_slot: formData.drivingTestSlot || null,
         medical_test_slot: formData.medicalTestSlot || null,
-        status: "submitted",
+        status: "pending",
       };
 
       // Check if application exists
