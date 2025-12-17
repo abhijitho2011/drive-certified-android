@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,46 +13,81 @@ import {
   Download,
   QrCode,
   AlertTriangle,
-  ArrowRight
+  Users
 } from "lucide-react";
-import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 const CompanyDashboard = () => {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
+  const [companyData, setCompanyData] = useState<{ company_name: string } | null>(null);
+  const [verificationResult, setVerificationResult] = useState<any>(null);
+  const [searching, setSearching] = useState(false);
 
-  const stats = [
-    { label: "Total Verifications", value: 1847, icon: Search },
-    { label: "Valid Certificates", value: 1792, icon: CheckCircle2, color: "text-success" },
-    { label: "Invalid/Expired", value: 55, icon: XCircle, color: "text-destructive" },
-  ];
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!user) return;
+      
+      // Fetch company data
+      const { data: company } = await supabase
+        .from("data_users")
+        .select("company_name")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (company) {
+        setCompanyData(company);
+      }
+    };
 
-  const recentVerifications = [
-    { id: 1, certificateNo: "MOT-2024-123456", driverName: "R***a K***r", status: "valid", date: "2024-01-15" },
-    { id: 2, certificateNo: "MOT-2024-123457", driverName: "A***t S***h", status: "valid", date: "2024-01-14" },
-    { id: 3, certificateNo: "MOT-2023-098765", driverName: "P***a S***a", status: "expired", date: "2024-01-14" },
-    { id: 4, certificateNo: "MOT-2024-123458", driverName: "V***m P***l", status: "valid", date: "2024-01-13" },
-    { id: 5, certificateNo: "MOT-INVALID-001", driverName: "-", status: "invalid", date: "2024-01-13" },
-  ];
+    fetchData();
+  }, [user]);
 
-  const expiringAlerts = [
-    { name: "R***l V***a", certificateNo: "MOT-2024-111222", expiresIn: "5 days" },
-    { name: "S***h K***r", certificateNo: "MOT-2024-111223", expiresIn: "12 days" },
-    { name: "M***a G***a", certificateNo: "MOT-2024-111224", expiresIn: "18 days" },
-  ];
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "valid":
-        return <Badge variant="success">Valid</Badge>;
-      case "expired":
-        return <Badge variant="warning">Expired</Badge>;
-      default:
-        return <Badge variant="destructive">Invalid</Badge>;
+  const handleVerify = async () => {
+    if (!searchQuery.trim()) return;
+    
+    setSearching(true);
+    setVerificationResult(null);
+    
+    // Search for certificate
+    const { data: app } = await supabase
+      .from("applications")
+      .select(`
+        certificate_number,
+        status,
+        admin_approved,
+        drivers:driver_id (first_name, last_name)
+      `)
+      .eq("certificate_number", searchQuery.trim())
+      .maybeSingle();
+    
+    if (app) {
+      setVerificationResult({
+        found: true,
+        valid: app.admin_approved && app.status === "approved",
+        certificateNo: app.certificate_number,
+        driverName: `${app.drivers?.first_name?.charAt(0)}***${app.drivers?.first_name?.slice(-1)} ${app.drivers?.last_name?.charAt(0)}***`,
+        status: app.status
+      });
+    } else {
+      setVerificationResult({
+        found: false,
+        valid: false
+      });
     }
+    
+    setSearching(false);
   };
 
+  const stats = [
+    { label: "Total Verifications", value: 0, icon: Search },
+    { label: "Valid Certificates", value: 0, icon: CheckCircle2, color: "text-success" },
+    { label: "Invalid/Expired", value: 0, icon: XCircle, color: "text-destructive" },
+  ];
+
   return (
-    <DashboardLayout role="company" userName="FleetMax Logistics">
+    <DashboardLayout role="company" userName={companyData?.company_name || "Company"}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -59,10 +95,6 @@ const CompanyDashboard = () => {
             <h1 className="text-2xl font-bold">Company Verification Portal</h1>
             <p className="text-muted-foreground">Verify driver certifications and manage your fleet compliance.</p>
           </div>
-          <Button variant="outline">
-            <Download className="w-4 h-4 mr-2" />
-            Export Report
-          </Button>
         </div>
 
         {/* Quick Verify */}
@@ -74,7 +106,7 @@ const CompanyDashboard = () => {
               </div>
               <div className="flex-1 text-center md:text-left">
                 <h3 className="font-semibold mb-1">Quick Certificate Verification</h3>
-                <p className="text-sm text-muted-foreground">Enter certificate number or scan QR code</p>
+                <p className="text-sm text-muted-foreground">Enter certificate number to verify</p>
               </div>
               <div className="flex gap-2 w-full md:w-auto">
                 <div className="relative flex-1 md:w-80">
@@ -83,12 +115,48 @@ const CompanyDashboard = () => {
                     placeholder="Enter certificate number..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleVerify()}
                     className="pl-10"
                   />
                 </div>
-                <Button>Verify</Button>
+                <Button onClick={handleVerify} disabled={searching}>
+                  {searching ? "Verifying..." : "Verify"}
+                </Button>
               </div>
             </div>
+            
+            {/* Verification Result */}
+            {verificationResult && (
+              <div className={`mt-4 p-4 rounded-lg ${verificationResult.found ? (verificationResult.valid ? "bg-success/10 border border-success/30" : "bg-warning/10 border border-warning/30") : "bg-destructive/10 border border-destructive/30"}`}>
+                {verificationResult.found ? (
+                  <div className="flex items-center gap-3">
+                    {verificationResult.valid ? (
+                      <CheckCircle2 className="w-6 h-6 text-success" />
+                    ) : (
+                      <AlertTriangle className="w-6 h-6 text-warning" />
+                    )}
+                    <div>
+                      <p className="font-semibold">
+                        {verificationResult.valid ? "Valid Certificate" : "Certificate Not Active"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {verificationResult.certificateNo} • {verificationResult.driverName}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <XCircle className="w-6 h-6 text-destructive" />
+                    <div>
+                      <p className="font-semibold">Certificate Not Found</p>
+                      <p className="text-sm text-muted-foreground">
+                        No certificate found with number: {searchQuery}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -111,67 +179,24 @@ const CompanyDashboard = () => {
           ))}
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Recent Verifications */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Recent Verifications</CardTitle>
-                  <CardDescription>Your latest certificate verification history</CardDescription>
-                </div>
-                <Button variant="outline" size="sm">
-                  View All
-                  <ArrowRight className="w-4 h-4 ml-1" />
-                </Button>
+        {/* Recent Verifications - Empty State */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Recent Verifications</CardTitle>
+                <CardDescription>Your latest certificate verification history</CardDescription>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {recentVerifications.map((v) => (
-                  <div
-                    key={v.id}
-                    className="flex items-center justify-between p-4 bg-muted/50 rounded-lg"
-                  >
-                    <div>
-                      <p className="font-medium font-mono text-sm">{v.certificateNo}</p>
-                      <p className="text-sm text-muted-foreground">{v.driverName} • {v.date}</p>
-                    </div>
-                    {getStatusBadge(v.status)}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Expiring Alerts */}
-          <Card className="border-warning/30">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-warning" />
-                Expiring Soon
-              </CardTitle>
-              <CardDescription>Certificates requiring renewal</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {expiringAlerts.map((alert, index) => (
-                  <div key={index} className="p-3 bg-warning/10 rounded-lg border border-warning/20">
-                    <p className="font-medium text-sm">{alert.name}</p>
-                    <p className="text-xs text-muted-foreground font-mono">{alert.certificateNo}</p>
-                    <Badge variant="warning" className="mt-2">
-                      <Clock className="w-3 h-3 mr-1" />
-                      Expires in {alert.expiresIn}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-              <Button variant="outline" className="w-full mt-4" size="sm">
-                View All Expiring
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-8 text-muted-foreground">
+              <Search className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>No verification history</p>
+              <p className="text-sm">Start verifying certificates to see history here</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   );

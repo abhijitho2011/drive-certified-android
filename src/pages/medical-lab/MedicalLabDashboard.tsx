@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,26 +9,69 @@ import {
   Clock, 
   CheckCircle2,
   Stethoscope,
-  AlertCircle,
   ArrowRight
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 const MedicalLabDashboard = () => {
+  const { user } = useAuth();
+  const [partnerData, setPartnerData] = useState<{ name: string } | null>(null);
+  const [applications, setApplications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!user) return;
+      
+      // Fetch partner data
+      const { data: partner } = await supabase
+        .from("partners")
+        .select("id, name")
+        .eq("user_id", user.id)
+        .eq("partner_type", "medical_lab")
+        .maybeSingle();
+      
+      if (partner) {
+        setPartnerData(partner);
+        
+        // Fetch assigned applications
+        const { data: apps } = await supabase
+          .from("applications")
+          .select(`
+            *,
+            drivers:driver_id (first_name, last_name)
+          `)
+          .eq("medical_lab_id", partner.id);
+        
+        setApplications(apps || []);
+      }
+      setLoading(false);
+    };
+
+    fetchData();
+  }, [user]);
+
+  const pendingTests = applications.filter(app => !app.medical_test_passed);
+  const completedTests = applications.filter(app => app.medical_test_passed);
+
   const stats = [
-    { label: "Assigned Drivers", value: 32, icon: Users, color: "text-primary" },
-    { label: "Reports Submitted", value: 28, icon: FileText, color: "text-success" },
-    { label: "Pending Tests", value: 4, icon: Clock, color: "text-warning" },
+    { label: "Assigned Drivers", value: applications.length, icon: Users, color: "text-primary" },
+    { label: "Reports Submitted", value: completedTests.length, icon: FileText, color: "text-success" },
+    { label: "Pending Tests", value: pendingTests.length, icon: Clock, color: "text-warning" },
   ];
 
-  const pendingDrivers = [
-    { id: 1, name: "Suresh Verma", vehicleClass: "Heavy Truck", date: "2024-01-15", status: "pending" },
-    { id: 2, name: "Deepak Gupta", vehicleClass: "Tanker", date: "2024-01-14", status: "in_progress" },
-    { id: 3, name: "Meena Kumari", vehicleClass: "4 Wheeler", date: "2024-01-14", status: "pending" },
-    { id: 4, name: "Rajan Mishra", vehicleClass: "LCV", date: "2024-01-13", status: "pending" },
+  const testComponents = [
+    { name: "Vision Test", desc: "Visual acuity & color blindness" },
+    { name: "Hearing Test", desc: "Audiometric assessment" },
+    { name: "Blood Pressure", desc: "BP measurement & history" },
+    { name: "BMI Check", desc: "Height & weight measurement" },
+    { name: "Alcohol Screening", desc: "Blood alcohol level test" },
+    { name: "Drug Screening", desc: "Narcotics panel test" },
   ];
 
   return (
-    <DashboardLayout role="medical-lab" userName="HealthFirst Diagnostics">
+    <DashboardLayout role="medical-lab" userName={partnerData?.name || "Medical Lab"}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -67,41 +111,49 @@ const MedicalLabDashboard = () => {
                 </CardTitle>
                 <CardDescription>Drivers awaiting health screening</CardDescription>
               </div>
-              <Button variant="outline" size="sm">
-                View All
-                <ArrowRight className="w-4 h-4 ml-1" />
-              </Button>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {pendingDrivers.map((driver) => (
-                <div
-                  key={driver.id}
-                  className="flex items-center justify-between p-4 bg-muted/50 rounded-lg hover:bg-muted transition-colors"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-info/10 flex items-center justify-center">
-                      <span className="text-sm font-semibold text-info">
-                        {driver.name.charAt(0)}
-                      </span>
+            {pendingTests.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>No pending medical examinations</p>
+                <p className="text-sm">Drivers will appear here when assigned to you</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {pendingTests.map((app) => (
+                  <div
+                    key={app.id}
+                    className="flex items-center justify-between p-4 bg-muted/50 rounded-lg hover:bg-muted transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-info/10 flex items-center justify-center">
+                        <span className="text-sm font-semibold text-info">
+                          {app.drivers?.first_name?.charAt(0) || "?"}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="font-medium">
+                          {app.drivers?.first_name} {app.drivers?.last_name}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Driving Test: {app.driving_test_passed ? "Passed" : "Pending"}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium">{driver.name}</p>
-                      <p className="text-sm text-muted-foreground">{driver.vehicleClass}</p>
+                    <div className="flex items-center gap-3">
+                      <Badge variant={app.driving_test_passed ? "success" : "secondary"}>
+                        {app.driving_test_passed ? "Ready" : "Awaiting Driving Test"}
+                      </Badge>
+                      <Button size="sm" disabled={!app.driving_test_passed}>
+                        Start Exam
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Badge variant={driver.status === "in_progress" ? "info" : "pending"}>
-                      {driver.status === "in_progress" ? "In Progress" : "Pending"}
-                    </Badge>
-                    <Button size="sm">
-                      {driver.status === "in_progress" ? "Continue" : "Start Exam"}
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -113,14 +165,7 @@ const MedicalLabDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="grid md:grid-cols-3 gap-4">
-              {[
-                { name: "Vision Test", desc: "Visual acuity & color blindness" },
-                { name: "Hearing Test", desc: "Audiometric assessment" },
-                { name: "Blood Pressure", desc: "BP measurement & history" },
-                { name: "BMI Check", desc: "Height & weight measurement" },
-                { name: "Alcohol Screening", desc: "Blood alcohol level test" },
-                { name: "Drug Screening", desc: "Narcotics panel test" },
-              ].map((test, index) => (
+              {testComponents.map((test, index) => (
                 <div key={index} className="p-4 bg-muted/50 rounded-lg">
                   <div className="flex items-center gap-2 mb-1">
                     <CheckCircle2 className="w-4 h-4 text-success" />
