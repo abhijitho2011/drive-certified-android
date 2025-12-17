@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,23 +15,51 @@ import {
   ArrowRight,
   Car
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 const DriverDashboard = () => {
-  // Mock data - will be replaced with actual data
-  const applicationStatus = "pending"; // submitted, driving_test, medical_test, admin_review, approved, rejected
-  const progress = 40;
+  const { user } = useAuth();
+  const [driverData, setDriverData] = useState<{ first_name: string; last_name: string } | null>(null);
+
+  useEffect(() => {
+    const fetchDriverData = async () => {
+      if (!user) return;
+      
+      const { data, error } = await supabase
+        .from("drivers")
+        .select("first_name, last_name")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (data) {
+        setDriverData(data);
+      }
+    };
+
+    fetchDriverData();
+  }, [user]);
+
+  const userName = driverData 
+    ? `${driverData.first_name} ${driverData.last_name}` 
+    : user?.user_metadata?.first_name 
+      ? `${user.user_metadata.first_name} ${user.user_metadata.last_name || ''}`
+      : "Driver";
+
+  // Application status - will be fetched from applications table
+  const progress = 20; // Just registered, no application yet
 
   const statusSteps = [
-    { label: "Application Submitted", completed: true, current: false },
-    { label: "Driving School Test", completed: false, current: true },
+    { label: "Application Submitted", completed: false, current: true },
+    { label: "Driving School Test", completed: false, current: false },
     { label: "Medical Test", completed: false, current: false },
     { label: "Admin Review", completed: false, current: false },
     { label: "Certificate Issued", completed: false, current: false },
   ];
 
   const requiredDocuments = [
-    { label: "Driving License", uploaded: true },
-    { label: "Aadhaar / ID", uploaded: true },
+    { label: "Driving License", uploaded: false },
+    { label: "Aadhaar / ID", uploaded: false },
     { label: "Police Clearance Certificate", uploaded: false },
     { label: "Educational Qualification", uploaded: false },
   ];
@@ -57,12 +86,12 @@ const DriverDashboard = () => {
   ];
 
   return (
-    <DashboardLayout role="driver" userName="Rahul Kumar">
+    <DashboardLayout role="driver" userName={userName}>
       <div className="space-y-6">
         {/* Welcome Section */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">Welcome back, Rahul!</h1>
+            <h1 className="text-2xl font-bold">Welcome back, {driverData?.first_name || user?.user_metadata?.first_name || "Driver"}!</h1>
             <p className="text-muted-foreground">Track your certification progress and manage your documents.</p>
           </div>
           <Link to="/driver/application">
@@ -81,7 +110,7 @@ const DriverDashboard = () => {
                 <Clock className="w-5 h-5 text-primary" />
                 Application Status
               </CardTitle>
-              <Badge variant="pending">In Progress</Badge>
+              <Badge variant="secondary">Not Started</Badge>
             </div>
             <CardDescription>Your certification application is being processed</CardDescription>
           </CardHeader>
