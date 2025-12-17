@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import motractLogo from "@/assets/motract-logo.jpg";
-import { ArrowLeft, Phone, Shield } from "lucide-react";
+import { ArrowLeft, Phone, Shield, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -15,11 +16,71 @@ const Login = () => {
   const [otp, setOtp] = useState("");
   const [step, setStep] = useState<"phone" | "otp">("phone");
   const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   const formatPhone = (value: string) => {
     const digits = value.replace(/\D/g, "");
     return digits.slice(0, 10);
+  };
+
+  const redirectByRole = async (userId: string) => {
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    toast.success("Login successful!");
+
+    switch (roleData?.role) {
+      case "admin":
+        navigate("/admin");
+        break;
+      case "driving_school":
+        navigate("/driving-school");
+        break;
+      case "medical_lab":
+        navigate("/medical-lab");
+        break;
+      case "company_verifier":
+        navigate("/company");
+        break;
+      case "driver":
+      default:
+        navigate("/driver");
+        break;
+    }
+  };
+
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!email || !password) {
+      toast.error("Please enter email and password");
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        await redirectByRole(data.user.id);
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Login failed");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSendOtp = async (e: React.FormEvent) => {
@@ -42,7 +103,7 @@ const Login = () => {
       toast.success("OTP sent to your mobile number");
       setStep("otp");
     } catch (error: any) {
-      toast.error(error.message || "Failed to send OTP");
+      toast.error(error.message || "Failed to send OTP. SMS provider may not be configured.");
     } finally {
       setIsLoading(false);
     }
@@ -68,33 +129,7 @@ const Login = () => {
       if (error) throw error;
 
       if (data.user) {
-        // Check user role and redirect
-        const { data: roleData } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", data.user.id)
-          .single();
-
-        toast.success("Login successful!");
-
-        switch (roleData?.role) {
-          case "admin":
-            navigate("/admin");
-            break;
-          case "driving_school":
-            navigate("/driving-school");
-            break;
-          case "medical_lab":
-            navigate("/medical-lab");
-            break;
-          case "company_verifier":
-            navigate("/company");
-            break;
-          case "driver":
-          default:
-            navigate("/driver");
-            break;
-        }
+        await redirectByRole(data.user.id);
       }
     } catch (error: any) {
       toast.error(error.message || "Invalid OTP");
@@ -120,81 +155,147 @@ const Login = () => {
               <img src={motractLogo} alt="MOTRACT" className="h-14 rounded-lg" />
             </div>
             <CardTitle className="text-2xl">Welcome back</CardTitle>
-            <CardDescription>
-              {step === "phone" 
-                ? "Enter your mobile number to receive OTP" 
-                : "Enter the OTP sent to your mobile"}
-            </CardDescription>
+            <CardDescription>Sign in to your account</CardDescription>
           </CardHeader>
           <CardContent>
-            {step === "phone" ? (
-              <form onSubmit={handleSendOtp} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Mobile Number</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <div className="absolute left-10 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                      +91
-                    </div>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="Enter 10-digit number"
-                      value={phone}
-                      onChange={(e) => setPhone(formatPhone(e.target.value))}
-                      className="pl-20"
-                      required
-                    />
-                  </div>
-                </div>
+            <Tabs defaultValue="email" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="email">Email</TabsTrigger>
+                <TabsTrigger value="phone">Phone OTP</TabsTrigger>
+              </TabsList>
 
-                <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
-                  {isLoading ? "Sending OTP..." : "Send OTP"}
-                </Button>
-              </form>
-            ) : (
-              <form onSubmit={handleVerifyOtp} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Enter OTP</Label>
-                  <div className="flex justify-center">
-                    <InputOTP
-                      maxLength={6}
-                      value={otp}
-                      onChange={(value) => setOtp(value)}
-                    >
-                      <InputOTPGroup>
-                        <InputOTPSlot index={0} />
-                        <InputOTPSlot index={1} />
-                        <InputOTPSlot index={2} />
-                        <InputOTPSlot index={3} />
-                        <InputOTPSlot index={4} />
-                        <InputOTPSlot index={5} />
-                      </InputOTPGroup>
-                    </InputOTP>
+              {/* Email Login */}
+              <TabsContent value="email">
+                <form onSubmit={handleEmailLogin} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="Enter your email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="pl-10"
+                        required
+                      />
+                    </div>
                   </div>
-                  <p className="text-xs text-center text-muted-foreground mt-2">
-                    OTP sent to +91 {phone}
+
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Enter your password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="pl-10 pr-10"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+                    {isLoading ? "Signing in..." : "Sign In"}
+                  </Button>
+                </form>
+
+                <div className="mt-4 p-3 bg-muted rounded-lg">
+                  <p className="text-xs text-muted-foreground text-center">
+                    <strong>Admin Login:</strong><br />
+                    Email: admin@motract.com<br />
+                    Password: Admin@123
                   </p>
                 </div>
+              </TabsContent>
 
-                <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
-                  <Shield className="w-4 h-4 mr-2" />
-                  {isLoading ? "Verifying..." : "Verify OTP"}
-                </Button>
+              {/* Phone OTP Login */}
+              <TabsContent value="phone">
+                {step === "phone" ? (
+                  <form onSubmit={handleSendOtp} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Mobile Number</Label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <div className="absolute left-10 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                          +91
+                        </div>
+                        <Input
+                          id="phone"
+                          type="tel"
+                          placeholder="Enter 10-digit number"
+                          value={phone}
+                          onChange={(e) => setPhone(formatPhone(e.target.value))}
+                          className="pl-20"
+                          required
+                        />
+                      </div>
+                    </div>
 
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  className="w-full"
-                  onClick={() => {
-                    setStep("phone");
-                    setOtp("");
-                  }}
-                >
-                  Change Number
-                </Button>
-              </form>
-            )}
+                    <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+                      {isLoading ? "Sending OTP..." : "Send OTP"}
+                    </Button>
+
+                    <p className="text-xs text-center text-muted-foreground">
+                      Note: Phone OTP requires SMS provider configuration
+                    </p>
+                  </form>
+                ) : (
+                  <form onSubmit={handleVerifyOtp} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Enter OTP</Label>
+                      <div className="flex justify-center">
+                        <InputOTP
+                          maxLength={6}
+                          value={otp}
+                          onChange={(value) => setOtp(value)}
+                        >
+                          <InputOTPGroup>
+                            <InputOTPSlot index={0} />
+                            <InputOTPSlot index={1} />
+                            <InputOTPSlot index={2} />
+                            <InputOTPSlot index={3} />
+                            <InputOTPSlot index={4} />
+                            <InputOTPSlot index={5} />
+                          </InputOTPGroup>
+                        </InputOTP>
+                      </div>
+                      <p className="text-xs text-center text-muted-foreground mt-2">
+                        OTP sent to +91 {phone}
+                      </p>
+                    </div>
+
+                    <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+                      <Shield className="w-4 h-4 mr-2" />
+                      {isLoading ? "Verifying..." : "Verify OTP"}
+                    </Button>
+
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      className="w-full"
+                      onClick={() => {
+                        setStep("phone");
+                        setOtp("");
+                      }}
+                    >
+                      Change Number
+                    </Button>
+                  </form>
+                )}
+              </TabsContent>
+            </Tabs>
 
             <div className="mt-6 text-center text-sm">
               <span className="text-muted-foreground">New driver? </span>
