@@ -143,39 +143,39 @@ const MedicalTestSheet = ({ open, onOpenChange, application, partnerId, onComple
     
     if (data) {
       setExistingResults(data);
-      if (!data.submitted_at) {
-        setResults({
-          blood_pressure_systolic: data.blood_pressure_systolic,
-          blood_pressure_diastolic: data.blood_pressure_diastolic,
-          blood_pressure_status: data.blood_pressure_status || "",
-          bmi: data.bmi,
-          bmi_status: data.bmi_status || "",
-          heart_rate: data.heart_rate,
-          heart_rate_status: data.heart_rate_status || "",
-          vision_left: data.vision_left || "",
-          vision_right: data.vision_right || "",
-          vision_status: data.vision_status || "",
-          color_blindness: data.color_blindness || false,
-          hearing_status: data.hearing_status || "",
-          health_notes: data.health_notes || "",
-          alcohol_test_method: data.alcohol_test_method || "",
-          alcohol_result: data.alcohol_result || "",
-          alcohol_level: data.alcohol_level,
-          drug_test_date: data.drug_test_date || new Date().toISOString().split("T")[0],
-          cannabis_result: data.cannabis_result || "pending",
-          opioids_result: data.opioids_result || "pending",
-          cocaine_result: data.cocaine_result || "pending",
-          amphetamines_result: data.amphetamines_result || "pending",
-          methamphetamine_result: data.methamphetamine_result || "pending",
-          mdma_result: data.mdma_result || "pending",
-          benzodiazepines_result: data.benzodiazepines_result || "pending",
-          barbiturates_result: data.barbiturates_result || "pending",
-          drug_notes: data.drug_notes || "",
-          fitness_status: data.fitness_status || "pending",
-          fitness_validity_months: data.fitness_validity_months || 12,
-          tested_by: data.tested_by || "",
-        });
-      }
+      // Always populate state so completed/submitted tests are readable.
+      // Inputs will be disabled when `submitted_at` is set.
+      setResults({
+        blood_pressure_systolic: data.blood_pressure_systolic,
+        blood_pressure_diastolic: data.blood_pressure_diastolic,
+        blood_pressure_status: data.blood_pressure_status || "",
+        bmi: data.bmi,
+        bmi_status: data.bmi_status || "",
+        heart_rate: data.heart_rate,
+        heart_rate_status: data.heart_rate_status || "",
+        vision_left: data.vision_left || "",
+        vision_right: data.vision_right || "",
+        vision_status: data.vision_status || "",
+        color_blindness: data.color_blindness || false,
+        hearing_status: data.hearing_status || "",
+        health_notes: data.health_notes || "",
+        alcohol_test_method: data.alcohol_test_method || "",
+        alcohol_result: data.alcohol_result || "",
+        alcohol_level: data.alcohol_level,
+        drug_test_date: data.drug_test_date || new Date().toISOString().split("T")[0],
+        cannabis_result: data.cannabis_result || "pending",
+        opioids_result: data.opioids_result || "pending",
+        cocaine_result: data.cocaine_result || "pending",
+        amphetamines_result: data.amphetamines_result || "pending",
+        methamphetamine_result: data.methamphetamine_result || "pending",
+        mdma_result: data.mdma_result || "pending",
+        benzodiazepines_result: data.benzodiazepines_result || "pending",
+        barbiturates_result: data.barbiturates_result || "pending",
+        drug_notes: data.drug_notes || "",
+        fitness_status: data.fitness_status || "pending",
+        fitness_validity_months: data.fitness_validity_months || 12,
+        tested_by: data.tested_by || "",
+      });
     }
   };
 
