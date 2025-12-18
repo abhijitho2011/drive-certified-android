@@ -1493,33 +1493,6 @@ export type Database = {
           },
         ]
       }
-      certificates_public: {
-        Row: {
-          certificate_expiry_date: string | null
-          certificate_number: string | null
-          certification_vehicle_class: string | null
-          issue_date: string | null
-          masked_name: string | null
-          skill_grade: string | null
-        }
-        Insert: {
-          certificate_expiry_date?: string | null
-          certificate_number?: string | null
-          certification_vehicle_class?: string | null
-          issue_date?: string | null
-          masked_name?: never
-          skill_grade?: string | null
-        }
-        Update: {
-          certificate_expiry_date?: string | null
-          certificate_number?: string | null
-          certification_vehicle_class?: string | null
-          issue_date?: string | null
-          masked_name?: never
-          skill_grade?: string | null
-        }
-        Relationships: []
-      }
       partners_discovery: {
         Row: {
           district: string | null
@@ -1606,6 +1579,17 @@ export type Database = {
       validate_traffic_answer: {
         Args: { _question_id: string; _selected_answer: string }
         Returns: boolean
+      }
+      verify_certificate: {
+        Args: { p_certificate_number: string }
+        Returns: {
+          certificate_expiry_date: string
+          certificate_number: string
+          certification_vehicle_class: string
+          issue_date: string
+          masked_name: string
+          skill_grade: string
+        }[]
       }
     }
     Enums: {
