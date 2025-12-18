@@ -169,10 +169,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "applications_driving_school_id_fkey"
+            columns: ["driving_school_id"]
+            isOneToOne: false
+            referencedRelation: "partners_discovery"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "applications_medical_lab_id_fkey"
             columns: ["medical_lab_id"]
             isOneToOne: false
             referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_medical_lab_id_fkey"
+            columns: ["medical_lab_id"]
+            isOneToOne: false
+            referencedRelation: "partners_discovery"
             referencedColumns: ["id"]
           },
         ]
@@ -476,6 +490,13 @@ export type Database = {
             referencedRelation: "partners"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "driving_test_results_driving_school_id_fkey"
+            columns: ["driving_school_id"]
+            isOneToOne: false
+            referencedRelation: "partners_discovery"
+            referencedColumns: ["id"]
+          },
         ]
       }
       education_verifications: {
@@ -655,6 +676,13 @@ export type Database = {
             referencedRelation: "partners"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "medical_test_results_medical_lab_id_fkey"
+            columns: ["medical_lab_id"]
+            isOneToOne: false
+            referencedRelation: "partners_discovery"
+            referencedColumns: ["id"]
+          },
         ]
       }
       partners: {
@@ -801,6 +829,30 @@ export type Database = {
         }
         Relationships: []
       }
+      traffic_test_login_attempts: {
+        Row: {
+          attempted_at: string | null
+          id: string
+          ip_address: string | null
+          success: boolean | null
+          test_user_id: string
+        }
+        Insert: {
+          attempted_at?: string | null
+          id?: string
+          ip_address?: string | null
+          success?: boolean | null
+          test_user_id: string
+        }
+        Update: {
+          attempted_at?: string | null
+          id?: string
+          ip_address?: string | null
+          success?: boolean | null
+          test_user_id?: string
+        }
+        Relationships: []
+      }
       traffic_test_sessions: {
         Row: {
           answers: Json | null
@@ -808,6 +860,7 @@ export type Database = {
           completed_at: string | null
           created_at: string
           driving_school_id: string
+          expires_at: string | null
           id: string
           score: number | null
           secret_key: string
@@ -822,6 +875,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           driving_school_id: string
+          expires_at?: string | null
           id?: string
           score?: number | null
           secret_key: string
@@ -836,6 +890,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           driving_school_id?: string
+          expires_at?: string | null
           id?: string
           score?: number | null
           secret_key?: string
@@ -857,6 +912,13 @@ export type Database = {
             columns: ["driving_school_id"]
             isOneToOne: false
             referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "traffic_test_sessions_driving_school_id_fkey"
+            columns: ["driving_school_id"]
+            isOneToOne: false
+            referencedRelation: "partners_discovery"
             referencedColumns: ["id"]
           },
         ]
@@ -957,6 +1019,33 @@ export type Database = {
       }
     }
     Views: {
+      partners_discovery: {
+        Row: {
+          district: string | null
+          id: string | null
+          name: string | null
+          partner_type: string | null
+          state: string | null
+          status: string | null
+        }
+        Insert: {
+          district?: string | null
+          id?: string | null
+          name?: string | null
+          partner_type?: string | null
+          state?: string | null
+          status?: string | null
+        }
+        Update: {
+          district?: string | null
+          id?: string | null
+          name?: string | null
+          partner_type?: string | null
+          state?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
       traffic_questions_public: {
         Row: {
           category: string | null
@@ -998,6 +1087,10 @@ export type Database = {
       }
     }
     Functions: {
+      check_traffic_test_rate_limit: {
+        Args: { p_test_user_id: string }
+        Returns: boolean
+      }
       enterprise_can_view_driver: {
         Args: { _driver_id: string; _user_id: string }
         Returns: boolean
