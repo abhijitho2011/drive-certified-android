@@ -99,6 +99,8 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
       if (!error && data) {
         setDrivingSchools(data.filter(p => p.partner_type === "driving_school"));
         setMedicalLabs(data.filter(p => p.partner_type === "medical_lab"));
+      } else if (error) {
+        console.error("Error fetching partners:", error);
       }
     };
 
