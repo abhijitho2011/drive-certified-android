@@ -1,1 +1,4 @@
 project_id = "krfidhubialsjntyubjo"
+
+[functions.submit-traffic-test]
+verify_jwt = false
