@@ -229,34 +229,25 @@ const TrafficTestPortal = () => {
 
     setSubmitting(true);
     try {
-      // Submit via secure Edge Function with credential validation
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/submit-traffic-test`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({
-            test_user_id: testUserId,
-            secret_key: secretKey,
-            session_id: session.id,
-            answers: answers,
-            questions: questions.map(q => ({
-              id: q.id,
-              originalOptions: q.originalOptions,
-            })),
-          }),
-        }
-      );
+      // Submit via backend function (public) with credential validation
+      const { data, error } = await supabase.functions.invoke("submit-traffic-test", {
+        body: {
+          test_user_id: testUserId,
+          secret_key: secretKey,
+          session_id: session.id,
+          answers,
+          questions: questions.map((q) => ({
+            id: q.id,
+            originalOptions: q.originalOptions,
+          })),
+        },
+      });
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to submit test");
+      if (error) {
+        throw new Error(error.message || "Failed to submit test");
       }
 
+      const result = data as { score: number; passed: boolean };
       setSession({ ...session, status: "completed", score: result.score });
       toast.success("Test submitted successfully!");
     } catch (error: any) {
