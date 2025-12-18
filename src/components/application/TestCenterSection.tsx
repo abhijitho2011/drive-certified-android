@@ -4,7 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { ApplicationFormData } from "@/pages/driver/ApplicationForm";
-import { Loader2, MapPin, Building2, Stethoscope, Calendar } from "lucide-react";
+import { Loader2, MapPin, Building2, Stethoscope, Calendar, GraduationCap } from "lucide-react";
 
 interface Props {
   formData: ApplicationFormData;
@@ -34,6 +34,7 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
   const [districts, setDistricts] = useState<District[]>([]);
   const [drivingSchools, setDrivingSchools] = useState<Partner[]>([]);
   const [medicalLabs, setMedicalLabs] = useState<Partner[]>([]);
+  const [verificationAgents, setVerificationAgents] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -80,6 +81,7 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
       if (!formData.testDistrict) {
         setDrivingSchools([]);
         setMedicalLabs([]);
+        setVerificationAgents([]);
         return;
       }
 
@@ -99,6 +101,7 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
       if (!error && data) {
         setDrivingSchools(data.filter(p => p.partner_type === "driving_school"));
         setMedicalLabs(data.filter(p => p.partner_type === "medical_lab"));
+        setVerificationAgents(data.filter(p => p.partner_type === "verification_agent"));
       } else if (error) {
         console.error("Error fetching partners:", error);
       }
@@ -135,6 +138,7 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
                   testDistrict: "",
                   drivingSchoolId: "",
                   medicalLabId: "",
+                  verificationAgentId: "",
                 });
               }}
             >
@@ -160,6 +164,7 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
                   testDistrict: value,
                   drivingSchoolId: "",
                   medicalLabId: "",
+                  verificationAgentId: "",
                 });
               }}
               disabled={!formData.testState}
@@ -299,6 +304,52 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
                 />
               </div>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* Verification Agent Selection */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 text-lg font-semibold">
+          <GraduationCap className="h-5 w-5 text-primary" />
+          <span>Select Education Verification Agent</span>
+        </div>
+
+        {!formData.testDistrict ? (
+          <p className="text-sm text-muted-foreground p-4 bg-muted rounded-lg">
+            Please select a state and district first to see available verification agents.
+          </p>
+        ) : verificationAgents.length === 0 ? (
+          <p className="text-sm text-muted-foreground p-4 bg-muted rounded-lg">
+            No verification agents available in the selected location. Please try a different district.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {verificationAgents.map((agent) => (
+              <div
+                key={agent.id}
+                className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  formData.verificationAgentId === agent.id
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/50"
+                }`}
+                onClick={() => updateFormData({ verificationAgentId: agent.id })}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                    formData.verificationAgentId === agent.id ? "border-primary" : "border-muted-foreground"
+                  }`}>
+                    {formData.verificationAgentId === agent.id && (
+                      <div className="w-2 h-2 rounded-full bg-primary" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-medium">{agent.name}</p>
+                    <p className="text-sm text-muted-foreground">{agent.address}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
