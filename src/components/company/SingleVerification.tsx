@@ -92,7 +92,6 @@ interface SingleVerificationProps {
 
 const SingleVerification = ({ dataUserId, companyName, onVerificationComplete }: SingleVerificationProps) => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchType, setSearchType] = useState<"certificate" | "driver_id">("certificate");
   const [searching, setSearching] = useState(false);
   const [result, setResult] = useState<VerificationResult | null>(null);
 
@@ -102,8 +101,10 @@ const SingleVerification = ({ dataUserId, companyName, onVerificationComplete }:
     setSearching(true);
     setResult(null);
     
-    let query = supabase
-      .from("applications")
+    // Use secure view that excludes sensitive data (Aadhaar, addresses, DOB, documents)
+    // Company verifiers can only search by certificate number (driver_id not exposed in view)
+    const { data: app } = await supabase
+      .from("applications_verification")
       .select(`
         id,
         certificate_number,
@@ -114,37 +115,18 @@ const SingleVerification = ({ dataUserId, companyName, onVerificationComplete }:
         vehicle_classes,
         certificate_status,
         certificate_expiry_date,
-        renewal_type,
         medical_test_passed,
         driving_test_passed,
-        full_name,
-        driver_id
-      `);
-
-    if (searchType === "certificate") {
-      query = query.eq("certificate_number", searchQuery.trim().toUpperCase());
-    } else {
-      query = query.eq("driver_id", searchQuery.trim());
-    }
-
-    const { data: app } = await query.maybeSingle();
+        full_name
+      `)
+      .eq("certificate_number", searchQuery.trim().toUpperCase())
+      .maybeSingle();
     
     let verificationResult: VerificationResult;
     
     if (app && app.certificate_number) {
-      // Fetch driver name from drivers table
-      let driverName = app.full_name || "Unknown";
-      if (app.driver_id) {
-        const { data: driver } = await supabase
-          .from("drivers")
-          .select("first_name, last_name")
-          .eq("id", app.driver_id)
-          .maybeSingle();
-        
-        if (driver) {
-          driverName = `${driver.first_name} ${driver.last_name}`;
-        }
-      }
+      // Use full_name from the secure view (driver_id not exposed)
+      const driverName = app.full_name || "Unknown";
 
       // Fetch driving test results
       const { data: drivingResults } = await supabase
@@ -229,7 +211,7 @@ const SingleVerification = ({ dataUserId, companyName, onVerificationComplete }:
         medicalFitness: fitnessStatus,
         expiryDate: app.certificate_expiry_date,
         certificateStatus: app.certificate_status,
-        renewalType: app.renewal_type,
+        renewalType: undefined, // Not exposed in secure view
         isExpiringSoon,
         isConditionalFit,
         recommendation,
@@ -281,32 +263,15 @@ const SingleVerification = ({ dataUserId, companyName, onVerificationComplete }:
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold mb-1">Driver Verification</h3>
-                <p className="text-sm text-muted-foreground">Search by certificate number or driver ID</p>
+                <p className="text-sm text-muted-foreground">Search by certificate number</p>
               </div>
-            </div>
-            
-            <div className="flex gap-2">
-              <Button 
-                variant={searchType === "certificate" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSearchType("certificate")}
-              >
-                Certificate Number
-              </Button>
-              <Button 
-                variant={searchType === "driver_id" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSearchType("driver_id")}
-              >
-                Driver ID
-              </Button>
             </div>
             
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder={searchType === "certificate" ? "Enter certificate number (e.g., MOTRACT-001)" : "Enter driver ID (UUID)"}
+                  placeholder="Enter certificate number (e.g., MOTRACT-001)"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleVerify()}
@@ -624,7 +589,7 @@ const SingleVerification = ({ dataUserId, companyName, onVerificationComplete }:
                   <div>
                     <p className="font-semibold text-lg">Certificate Not Found</p>
                     <p className="text-muted-foreground">
-                      No certificate found with {searchType === "certificate" ? "number" : "driver ID"}: {searchQuery}
+                      No certificate found with number: {searchQuery}
                     </p>
                   </div>
                 </div>
