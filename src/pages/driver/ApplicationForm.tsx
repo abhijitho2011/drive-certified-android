@@ -58,6 +58,7 @@ export interface ApplicationFormData {
   testDistrict: string;
   drivingSchoolId: string;
   medicalLabId: string;
+  verificationAgentId: string;
   drivingTestSlot: string;
   medicalTestSlot: string;
 }
@@ -91,6 +92,7 @@ const initialFormData: ApplicationFormData = {
   testDistrict: "",
   drivingSchoolId: "",
   medicalLabId: "",
+  verificationAgentId: "",
   drivingTestSlot: "",
   medicalTestSlot: "",
 };
@@ -295,6 +297,7 @@ const ApplicationForm = () => {
         test_district: formData.testDistrict,
         driving_school_id: formData.drivingSchoolId,
         medical_lab_id: formData.medicalLabId,
+        verification_agent_id: formData.verificationAgentId || null,
         driving_test_slot: formData.drivingTestSlot || null,
         medical_test_slot: formData.medicalTestSlot || null,
         status: "pending",
