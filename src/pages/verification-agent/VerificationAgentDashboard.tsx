@@ -91,10 +91,10 @@ const VerificationAgentDashboard = () => {
     
     if (partner) {
       setPartnerData(partner);
-      // Use role-specific view that only exposes education/identity data (no test results)
+      // Query applications table directly - RLS handles access control
       const { data: apps, error } = await supabase
-        .from("applications_verification_agent")
-        .select(`*`)
+        .from("applications")
+        .select(`id, full_name, highest_qualification, documents, education_verified, date_of_birth, gender, aadhaar_number, current_address, permanent_address, licence_number, licence_type, vehicle_classes, notes, driver_id, verification_agent_id, licence_issue_date, licence_expiry_date, issuing_rto`)
         .eq("verification_agent_id", partner.id)
         .not("highest_qualification", "is", null);
       
