@@ -242,7 +242,16 @@ const DrivingSchoolDashboard = () => {
                         <p className="text-sm text-muted-foreground">Grade: {app.skill_grade || "N/A"}</p>
                       </div>
                     </div>
-                    <Badge variant="success">Passed</Badge>
+                    <div className="flex items-center gap-3">
+                      <Badge variant="success">Passed</Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => { setSelectedApp(app); setIsTestOpen(true); }}
+                      >
+                        View Details
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>

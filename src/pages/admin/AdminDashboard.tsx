@@ -260,12 +260,51 @@ const AdminDashboard = () => {
         supabase.from("districts").select("*").order("name", { ascending: true }),
       ]);
 
-      if (driversRes.data) setDrivers(driversRes.data);
-      if (partnersRes.data) setPartners(partnersRes.data);
-      if (dataUsersRes.data) setDataUsers(dataUsersRes.data);
-      if (applicationsRes.data) setApplications(applicationsRes.data as Application[]);
-      if (statesRes.data) setStates(statesRes.data);
-      if (districtsRes.data) setDistricts(districtsRes.data);
+      if (driversRes.error) {
+        console.error("Failed to load clients (drivers):", driversRes.error);
+        toast.error("Failed to load clients");
+        setDrivers([]);
+      } else {
+        setDrivers(driversRes.data || []);
+      }
+
+      if (partnersRes.error) {
+        console.error("Failed to load partners:", partnersRes.error);
+        toast.error("Failed to load partners");
+        setPartners([]);
+      } else {
+        setPartners(partnersRes.data || []);
+      }
+
+      if (dataUsersRes.error) {
+        console.error("Failed to load enterprise users:", dataUsersRes.error);
+        toast.error("Failed to load enterprise users");
+        setDataUsers([]);
+      } else {
+        setDataUsers(dataUsersRes.data || []);
+      }
+
+      if (applicationsRes.error) {
+        console.error("Failed to load applications:", applicationsRes.error);
+        toast.error("Failed to load applications");
+        setApplications([]);
+      } else {
+        setApplications((applicationsRes.data as Application[]) || []);
+      }
+
+      if (statesRes.error) {
+        console.error("Failed to load states:", statesRes.error);
+        setStates([]);
+      } else {
+        setStates(statesRes.data || []);
+      }
+
+      if (districtsRes.error) {
+        console.error("Failed to load districts:", districtsRes.error);
+        setDistricts([]);
+      } else {
+        setDistricts(districtsRes.data || []);
+      }
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error("Failed to fetch data");
