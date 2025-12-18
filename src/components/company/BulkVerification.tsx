@@ -85,8 +85,9 @@ const BulkVerification = ({ dataUserId, companyName, onBulkVerificationComplete 
       for (let i = 0; i < queries.length; i += batchSize) {
         const batch = queries.slice(i, i + batchSize);
         
+        // Use secure view that excludes sensitive data (Aadhaar, addresses, DOB, documents)
         const { data: apps } = await supabase
-          .from("applications")
+          .from("applications_verification")
           .select(`
             id,
             certificate_number,
@@ -97,7 +98,7 @@ const BulkVerification = ({ dataUserId, companyName, onBulkVerificationComplete 
             vehicle_classes,
             certificate_status,
             certificate_expiry_date,
-            drivers:driver_id (id, first_name, last_name)
+            full_name
           `)
           .in("certificate_number", batch.map(q => q.toUpperCase()));
 
@@ -125,7 +126,7 @@ const BulkVerification = ({ dataUserId, companyName, onBulkVerificationComplete 
               query,
               status,
               certificateNo: app.certificate_number,
-              driverName: `${app.drivers?.first_name} ${app.drivers?.last_name}`,
+              driverName: app.full_name || "Unknown",
               vehicleClass: app.certification_vehicle_class || (app.vehicle_classes as string[])?.join(", "),
               expiryDate: app.certificate_expiry_date,
               recommendation

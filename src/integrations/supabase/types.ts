@@ -484,6 +484,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "driving_test_results_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: true
+            referencedRelation: "applications_verification"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "driving_test_results_driving_school_id_fkey"
             columns: ["driving_school_id"]
             isOneToOne: false
@@ -539,6 +546,13 @@ export type Database = {
             columns: ["application_id"]
             isOneToOne: false
             referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "education_verifications_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications_verification"
             referencedColumns: ["id"]
           },
         ]
@@ -667,6 +681,13 @@ export type Database = {
             columns: ["application_id"]
             isOneToOne: true
             referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medical_test_results_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: true
+            referencedRelation: "applications_verification"
             referencedColumns: ["id"]
           },
           {
@@ -908,6 +929,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "traffic_test_sessions_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications_verification"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "traffic_test_sessions_driving_school_id_fkey"
             columns: ["driving_school_id"]
             isOneToOne: false
@@ -1002,6 +1030,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "verification_logs_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications_verification"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "verification_logs_company_user_id_fkey"
             columns: ["company_user_id"]
             isOneToOne: false
@@ -1019,6 +1054,81 @@ export type Database = {
       }
     }
     Views: {
+      applications_verification: {
+        Row: {
+          admin_approved: boolean | null
+          certificate_expiry_date: string | null
+          certificate_number: string | null
+          certificate_status: string | null
+          certification_purpose: string | null
+          certification_vehicle_class: string | null
+          created_at: string | null
+          driving_test_passed: boolean | null
+          driving_validity_date: string | null
+          education_verified: boolean | null
+          full_name: string | null
+          gender: string | null
+          id: string | null
+          issuing_rto: string | null
+          licence_number: string | null
+          licence_type: string | null
+          medical_test_passed: boolean | null
+          medical_validity_date: string | null
+          skill_grade: string | null
+          status: string | null
+          updated_at: string | null
+          vehicle_classes: string[] | null
+        }
+        Insert: {
+          admin_approved?: boolean | null
+          certificate_expiry_date?: string | null
+          certificate_number?: string | null
+          certificate_status?: string | null
+          certification_purpose?: string | null
+          certification_vehicle_class?: string | null
+          created_at?: string | null
+          driving_test_passed?: boolean | null
+          driving_validity_date?: string | null
+          education_verified?: boolean | null
+          full_name?: string | null
+          gender?: string | null
+          id?: string | null
+          issuing_rto?: string | null
+          licence_number?: string | null
+          licence_type?: string | null
+          medical_test_passed?: boolean | null
+          medical_validity_date?: string | null
+          skill_grade?: string | null
+          status?: string | null
+          updated_at?: string | null
+          vehicle_classes?: string[] | null
+        }
+        Update: {
+          admin_approved?: boolean | null
+          certificate_expiry_date?: string | null
+          certificate_number?: string | null
+          certificate_status?: string | null
+          certification_purpose?: string | null
+          certification_vehicle_class?: string | null
+          created_at?: string | null
+          driving_test_passed?: boolean | null
+          driving_validity_date?: string | null
+          education_verified?: boolean | null
+          full_name?: string | null
+          gender?: string | null
+          id?: string | null
+          issuing_rto?: string | null
+          licence_number?: string | null
+          licence_type?: string | null
+          medical_test_passed?: boolean | null
+          medical_validity_date?: string | null
+          skill_grade?: string | null
+          status?: string | null
+          updated_at?: string | null
+          vehicle_classes?: string[] | null
+        }
+        Relationships: []
+      }
       partners_discovery: {
         Row: {
           district: string | null
