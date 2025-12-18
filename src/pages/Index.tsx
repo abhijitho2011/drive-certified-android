@@ -1,86 +1,65 @@
 import motractLogo from "@/assets/motract-logo.jpg";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { 
-  Shield, 
-  Users, 
-  Building2, 
-  FileCheck, 
-  Stethoscope, 
-  Car,
-  CheckCircle2,
-  ArrowRight,
-  QrCode,
-  Award,
-  Clock,
-  Lock
-} from "lucide-react";
-
+import { Shield, Users, Building2, FileCheck, Stethoscope, Car, CheckCircle2, ArrowRight, QrCode, Award, Clock, Lock } from "lucide-react";
 const Index = () => {
-  const features = [
-    {
-      icon: FileCheck,
-      title: "Skill Verification",
-      description: "Comprehensive driving skill assessments with standardized testing protocols"
-    },
-    {
-      icon: Stethoscope,
-      title: "Medical Fitness",
-      description: "Complete health screening including vision, drug, and fitness tests"
-    },
-    {
-      icon: Shield,
-      title: "Secure Certificates",
-      description: "Tamper-proof digital certificates with QR code verification"
-    },
-    {
-      icon: Clock,
-      title: "Real-time Tracking",
-      description: "Track application status from submission to certification"
-    }
-  ];
-
-  const roles = [
-    {
-      icon: Car,
-      title: "Drivers",
-      description: "Apply for certification, upload documents, and access your digital certificate wallet",
-      color: "bg-primary"
-    },
-    {
-      icon: Building2,
-      title: "Driving Schools",
-      description: "Conduct skill tests, verify identity, and submit comprehensive evaluations",
-      color: "bg-secondary"
-    },
-    {
-      icon: Stethoscope,
-      title: "Medical Labs",
-      description: "Perform health screenings, drug tests, and submit medical fitness reports",
-      color: "bg-info"
-    },
-    {
-      icon: Users,
-      title: "Companies",
-      description: "Verify driver certifications instantly via certificate number or QR code",
-      color: "bg-success"
-    }
-  ];
-
-  const stats = [
-    { value: "50K+", label: "Certified Drivers" },
-    { value: "500+", label: "Partner Schools" },
-    { value: "200+", label: "Medical Labs" },
-    { value: "99.9%", label: "Verification Accuracy" }
-  ];
-
-  return (
-    <div className="min-h-screen bg-background">
+  const features = [{
+    icon: FileCheck,
+    title: "Skill Verification",
+    description: "Comprehensive driving skill assessments with standardized testing protocols"
+  }, {
+    icon: Stethoscope,
+    title: "Medical Fitness",
+    description: "Complete health screening including vision, drug, and fitness tests"
+  }, {
+    icon: Shield,
+    title: "Secure Certificates",
+    description: "Tamper-proof digital certificates with QR code verification"
+  }, {
+    icon: Clock,
+    title: "Real-time Tracking",
+    description: "Track application status from submission to certification"
+  }];
+  const roles = [{
+    icon: Car,
+    title: "Drivers",
+    description: "Apply for certification, upload documents, and access your digital certificate wallet",
+    color: "bg-primary"
+  }, {
+    icon: Building2,
+    title: "Driving Schools",
+    description: "Conduct skill tests, verify identity, and submit comprehensive evaluations",
+    color: "bg-secondary"
+  }, {
+    icon: Stethoscope,
+    title: "Medical Labs",
+    description: "Perform health screenings, drug tests, and submit medical fitness reports",
+    color: "bg-info"
+  }, {
+    icon: Users,
+    title: "Companies",
+    description: "Verify driver certifications instantly via certificate number or QR code",
+    color: "bg-success"
+  }];
+  const stats = [{
+    value: "50K+",
+    label: "Certified Drivers"
+  }, {
+    value: "500+",
+    label: "Partner Schools"
+  }, {
+    value: "200+",
+    label: "Medical Labs"
+  }, {
+    value: "99.9%",
+    label: "Verification Accuracy"
+  }];
+  return <div className="min-h-screen bg-background">
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <img src={motractLogo} alt="MOTRACT" className="h-10 rounded-lg" />
+            
           </Link>
           <div className="hidden md:flex items-center gap-8">
             <a href="#features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Features</a>
@@ -115,14 +94,18 @@ const Index = () => {
               <span className="relative">
                 Simple
                 <svg className="absolute -bottom-2 left-0 w-full" viewBox="0 0 200 12" fill="none">
-                  <path d="M2 10C50 4 150 4 198 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+                  <path d="M2 10C50 4 150 4 198 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
                 </svg>
               </span>
             </h1>
-            <p className="text-lg md:text-xl text-foreground/80 mb-8 max-w-2xl mx-auto animate-slide-up" style={{ animationDelay: "0.1s" }}>
+            <p className="text-lg md:text-xl text-foreground/80 mb-8 max-w-2xl mx-auto animate-slide-up" style={{
+            animationDelay: "0.1s"
+          }}>
               MOTRACT streamlines driver verification, medical fitness validation, and certificate issuance for enterprises across logistics, ride-hailing, and delivery.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center animate-slide-up" style={{ animationDelay: "0.2s" }}>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center animate-slide-up" style={{
+            animationDelay: "0.2s"
+          }}>
               <Link to="/register">
                 <Button variant="hero" size="xl">
                   Get Started
@@ -145,12 +128,10 @@ const Index = () => {
       <section className="py-12 border-b border-border">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {stats.map((stat, index) => (
-              <div key={index} className="text-center">
+            {stats.map((stat, index) => <div key={index} className="text-center">
                 <div className="text-3xl md:text-4xl font-bold text-primary mb-1">{stat.value}</div>
                 <div className="text-sm text-muted-foreground">{stat.label}</div>
-              </div>
-            ))}
+              </div>)}
           </div>
         </div>
       </section>
@@ -165,18 +146,13 @@ const Index = () => {
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {features.map((feature, index) => (
-              <div
-                key={index}
-                className="group p-6 rounded-xl border border-border bg-card hover:border-primary hover:shadow-lg transition-all duration-300"
-              >
+            {features.map((feature, index) => <div key={index} className="group p-6 rounded-xl border border-border bg-card hover:border-primary hover:shadow-lg transition-all duration-300">
                 <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                   <feature.icon className="w-6 h-6" />
                 </div>
                 <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
                 <p className="text-sm text-muted-foreground">{feature.description}</p>
-              </div>
-            ))}
+              </div>)}
           </div>
         </div>
       </section>
@@ -191,18 +167,13 @@ const Index = () => {
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {roles.map((role, index) => (
-              <div
-                key={index}
-                className="p-6 rounded-xl bg-card border border-border hover:shadow-xl transition-all duration-300 group"
-              >
+            {roles.map((role, index) => <div key={index} className="p-6 rounded-xl bg-card border border-border hover:shadow-xl transition-all duration-300 group">
                 <div className={`w-14 h-14 rounded-xl ${role.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
                   <role.icon className="w-7 h-7 text-white" />
                 </div>
                 <h3 className="text-lg font-semibold mb-2">{role.title}</h3>
                 <p className="text-sm text-muted-foreground">{role.description}</p>
-              </div>
-            ))}
+              </div>)}
           </div>
         </div>
       </section>
@@ -277,8 +248,6 @@ const Index = () => {
           </div>
         </div>
       </footer>
-    </div>
-  );
+    </div>;
 };
-
 export default Index;
