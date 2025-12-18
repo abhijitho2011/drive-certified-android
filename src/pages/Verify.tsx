@@ -6,6 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import motractLogo from "@/assets/motract-logo.jpg";
 import { ArrowLeft, Search, QrCode, CheckCircle2, XCircle, Shield, Calendar, Car, User } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
 
 type VerificationResult = {
   valid: boolean;
@@ -26,24 +28,27 @@ const Verify = () => {
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!searchValue.trim() || searchValue.length < 4) {
+      setResult(null);
+      setSearched(true);
+      setIsSearching(false);
+      return;
+    }
+
     setIsSearching(true);
     setSearched(true);
 
-    // Simulate verification - will be replaced with actual API call
-    setTimeout(() => {
-      // Demo: return valid result for specific certificate numbers
-      if (searchValue.toUpperCase().includes("MOT") || searchValue === "123456") {
-        setResult({
-          valid: true,
-          certificateNumber: "MOT-2024-123456",
-          driverName: "R***a K***r",
-          vehicleClass: "4 Wheeler",
-          issueDate: "2024-01-15",
-          expiryDate: "2026-01-15",
-          grade: "A",
-          authority: "MOTRACT Certification Authority",
-        });
-      } else if (searchValue.length > 3) {
+    try {
+      // Query the secure public view for certificate verification
+      const { data, error } = await supabase
+        .from('certificates_public')
+        .select('certificate_number, masked_name, certification_vehicle_class, skill_grade, certificate_expiry_date, issue_date')
+        .eq('certificate_number', searchValue.toUpperCase().trim())
+        .maybeSingle();
+
+      if (error) {
+        console.error('Verification error:', error);
         setResult({
           valid: false,
           certificateNumber: searchValue,
@@ -54,11 +59,46 @@ const Verify = () => {
           grade: "-",
           authority: "-",
         });
+      } else if (data) {
+        // Valid certificate found
+        setResult({
+          valid: true,
+          certificateNumber: data.certificate_number,
+          driverName: data.masked_name || "***",
+          vehicleClass: data.certification_vehicle_class || "-",
+          issueDate: data.issue_date ? format(new Date(data.issue_date), 'yyyy-MM-dd') : "-",
+          expiryDate: data.certificate_expiry_date ? format(new Date(data.certificate_expiry_date), 'yyyy-MM-dd') : "-",
+          grade: data.skill_grade || "-",
+          authority: "MOTRACT Certification Authority",
+        });
       } else {
-        setResult(null);
+        // Certificate not found
+        setResult({
+          valid: false,
+          certificateNumber: searchValue,
+          driverName: "-",
+          vehicleClass: "-",
+          issueDate: "-",
+          expiryDate: "-",
+          grade: "-",
+          authority: "-",
+        });
       }
+    } catch (err) {
+      console.error('Verification failed:', err);
+      setResult({
+        valid: false,
+        certificateNumber: searchValue,
+        driverName: "-",
+        vehicleClass: "-",
+        issueDate: "-",
+        expiryDate: "-",
+        grade: "-",
+        authority: "-",
+      });
+    } finally {
       setIsSearching(false);
-    }, 1000);
+    }
   };
 
   return (

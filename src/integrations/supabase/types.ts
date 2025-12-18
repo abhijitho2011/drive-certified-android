@@ -1493,6 +1493,33 @@ export type Database = {
           },
         ]
       }
+      certificates_public: {
+        Row: {
+          certificate_expiry_date: string | null
+          certificate_number: string | null
+          certification_vehicle_class: string | null
+          issue_date: string | null
+          masked_name: string | null
+          skill_grade: string | null
+        }
+        Insert: {
+          certificate_expiry_date?: string | null
+          certificate_number?: string | null
+          certification_vehicle_class?: string | null
+          issue_date?: string | null
+          masked_name?: never
+          skill_grade?: string | null
+        }
+        Update: {
+          certificate_expiry_date?: string | null
+          certificate_number?: string | null
+          certification_vehicle_class?: string | null
+          issue_date?: string | null
+          masked_name?: never
+          skill_grade?: string | null
+        }
+        Relationships: []
+      }
       partners_discovery: {
         Row: {
           district: string | null
