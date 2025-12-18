@@ -91,13 +91,31 @@ const VerificationAgentDashboard = () => {
     
     if (partner) {
       setPartnerData(partner);
+      // Use role-specific view that only exposes education/identity data (no test results)
       const { data: apps, error } = await supabase
-        .from("applications")
-        .select(`*, drivers:driver_id (first_name, last_name, phone, address, district, state, pin_code)`)
+        .from("applications_verification_agent")
+        .select(`*`)
+        .eq("verification_agent_id", partner.id)
         .not("highest_qualification", "is", null);
       
       if (error) console.error("Error fetching applications:", error);
-      setApplications(apps || []);
+      
+      // Fetch driver details separately (only for assigned drivers)
+      if (apps && apps.length > 0) {
+        const driverIds = apps.map(a => a.driver_id);
+        const { data: drivers } = await supabase
+          .from("drivers")
+          .select("id, first_name, last_name, phone, address, district, state, pin_code")
+          .in("id", driverIds);
+        
+        const appsWithDrivers = apps.map(app => ({
+          ...app,
+          drivers: drivers?.find(d => d.id === app.driver_id) || null
+        }));
+        setApplications(appsWithDrivers);
+      } else {
+        setApplications([]);
+      }
     }
     setLoading(false);
   };
