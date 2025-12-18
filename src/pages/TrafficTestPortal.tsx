@@ -17,8 +17,9 @@ interface TrafficQuestion {
   option_b: string;
   option_c: string;
   option_d: string;
-  correct_answer: string;
   image_url?: string | null;
+  // Store shuffled option mapping for server-side validation
+  originalOptions: { key: string; value: string }[];
 }
 
 interface TestSession {
@@ -92,11 +93,10 @@ const TrafficTestPortal = () => {
         return;
       }
 
-      // Fetch questions
+      // Fetch questions from secure view (no correct answers exposed)
       const { data: questionsData } = await supabase
-        .from("traffic_law_questions")
+        .from("traffic_questions_public")
         .select("*")
-        .eq("status", "active")
         .limit(25);
 
       if (questionsData) {
@@ -104,7 +104,7 @@ const TrafficTestPortal = () => {
         const shuffled = questionsData.sort(() => 0.5 - Math.random()).slice(0, 20);
         
         // Shuffle options for each question
-        const shuffledWithOptions = shuffled.map((q) => {
+        const shuffledWithOptions: TrafficQuestion[] = shuffled.map((q) => {
           const options = [
             { key: "A", value: q.option_a },
             { key: "B", value: q.option_b },
@@ -118,17 +118,15 @@ const TrafficTestPortal = () => {
             [options[i], options[j]] = [options[j], options[i]];
           }
           
-          // Find new position of correct answer
-          const correctOptionValue = q[`option_${q.correct_answer.toLowerCase()}` as keyof typeof q] as string;
-          const newCorrectKey = ["A", "B", "C", "D"][options.findIndex(opt => opt.value === correctOptionValue)];
-          
           return {
-            ...q,
+            id: q.id,
+            question: q.question,
             option_a: options[0].value,
             option_b: options[1].value,
             option_c: options[2].value,
             option_d: options[3].value,
-            correct_answer: newCorrectKey,
+            image_url: q.image_url,
+            originalOptions: options, // Store for server-side validation
           };
         });
         
@@ -166,13 +164,22 @@ const TrafficTestPortal = () => {
 
     setSubmitting(true);
     try {
-      // Calculate score
+      // Calculate score using server-side validation
       let score = 0;
-      questions.forEach((q) => {
-        if (answers[q.id]?.toUpperCase() === q.correct_answer.toUpperCase()) {
-          score++;
+      for (const q of questions) {
+        const selectedAnswer = answers[q.id];
+        if (selectedAnswer) {
+          // Map the displayed answer back to original key
+          const originalKey = q.originalOptions[["a", "b", "c", "d"].indexOf(selectedAnswer.toLowerCase())]?.key;
+          if (originalKey) {
+            const { data } = await supabase.rpc("validate_traffic_answer", {
+              _question_id: q.id,
+              _selected_answer: originalKey,
+            });
+            if (data === true) score++;
+          }
         }
-      });
+      }
 
       const scaledScore = Math.round((score / Math.max(questions.length, 1)) * 20);
 
@@ -380,17 +387,20 @@ const TrafficTestPortal = () => {
                     value={answers[q.id] || ""}
                     onValueChange={(value) => handleAnswerChange(q.id, value)}
                   >
-                    {["a", "b", "c", "d"].map((opt) => (
-                      <div key={opt} className="flex items-center space-x-2 py-1">
-                        <RadioGroupItem value={opt} id={`${q.id}-${opt}`} />
-                        <Label 
-                          htmlFor={`${q.id}-${opt}`} 
-                          className="flex-1 cursor-pointer"
-                        >
-                          {q[`option_${opt}` as keyof TrafficQuestion]}
-                        </Label>
-                      </div>
-                    ))}
+                    {["a", "b", "c", "d"].map((opt) => {
+                      const optionKey = `option_${opt}` as "option_a" | "option_b" | "option_c" | "option_d";
+                      return (
+                        <div key={opt} className="flex items-center space-x-2 py-1">
+                          <RadioGroupItem value={opt} id={`${q.id}-${opt}`} />
+                          <Label 
+                            htmlFor={`${q.id}-${opt}`} 
+                            className="flex-1 cursor-pointer"
+                          >
+                            {q[optionKey]}
+                          </Label>
+                        </div>
+                      );
+                    })}
                   </RadioGroup>
                 </CardContent>
               </Card>
