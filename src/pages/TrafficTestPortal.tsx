@@ -44,6 +44,8 @@ const TrafficTestPortal = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [timeLeft, setTimeLeft] = useState(30 * 60); // 30 minutes
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  const [lockoutUntil, setLockoutUntil] = useState<Date | null>(null);
 
   // Timer countdown
   useEffect(() => {
@@ -63,14 +65,45 @@ const TrafficTestPortal = () => {
     return () => clearInterval(timer);
   }, [isAuthenticated, session]);
 
+  // Check lockout status
+  const isLockedOut = () => {
+    if (!lockoutUntil) return false;
+    return new Date() < lockoutUntil;
+  };
+
+  // Calculate lockout time based on attempts (exponential backoff)
+  const getLockoutDuration = (attempts: number) => {
+    if (attempts < 3) return 0;
+    // 30s, 60s, 120s, 240s...
+    return Math.min(30 * Math.pow(2, attempts - 3), 300) * 1000;
+  };
+
   const handleLogin = async () => {
     if (!testUserId.trim() || !secretKey.trim()) {
       toast.error("Please enter both User ID and Secret Key");
       return;
     }
 
+    // Check client-side lockout
+    if (isLockedOut()) {
+      const remainingSeconds = Math.ceil((lockoutUntil!.getTime() - Date.now()) / 1000);
+      toast.error(`Too many attempts. Please wait ${remainingSeconds} seconds.`);
+      return;
+    }
+
     setLoading(true);
     try {
+      // Check server-side rate limiting first
+      const { data: canProceed } = await supabase.rpc("check_traffic_test_rate_limit", {
+        p_test_user_id: testUserId.trim(),
+      });
+
+      if (canProceed === false) {
+        toast.error("Too many failed attempts. Please wait 15 minutes before trying again.");
+        setLockoutUntil(new Date(Date.now() + 15 * 60 * 1000));
+        return;
+      }
+
       // Find session by credentials
       const { data: sessionData, error: sessionError } = await supabase
         .from("traffic_test_sessions")
@@ -82,9 +115,41 @@ const TrafficTestPortal = () => {
       if (sessionError) throw sessionError;
       
       if (!sessionData) {
-        toast.error("Invalid credentials. Please check your User ID and Secret Key.");
+        // Log failed attempt
+        await supabase.from("traffic_test_login_attempts").insert({
+          test_user_id: testUserId.trim(),
+          success: false,
+        });
+        
+        const newAttempts = loginAttempts + 1;
+        setLoginAttempts(newAttempts);
+        
+        // Apply exponential backoff after 3 failed attempts
+        const lockoutDuration = getLockoutDuration(newAttempts);
+        if (lockoutDuration > 0) {
+          setLockoutUntil(new Date(Date.now() + lockoutDuration));
+          toast.error(`Invalid credentials. Please wait ${lockoutDuration / 1000} seconds before trying again.`);
+        } else {
+          toast.error("Invalid credentials. Please check your User ID and Secret Key.");
+        }
         return;
       }
+
+      // Check if session is expired
+      if (sessionData.expires_at && new Date(sessionData.expires_at) < new Date()) {
+        toast.error("This test session has expired. Please contact your driving school.");
+        return;
+      }
+
+      // Log successful attempt
+      await supabase.from("traffic_test_login_attempts").insert({
+        test_user_id: testUserId.trim(),
+        success: true,
+      });
+      
+      // Reset login attempts on success
+      setLoginAttempts(0);
+      setLockoutUntil(null);
 
       if (sessionData.status === "completed") {
         setSession(sessionData);
