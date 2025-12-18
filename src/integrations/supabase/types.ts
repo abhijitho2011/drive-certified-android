@@ -1565,6 +1565,10 @@ export type Database = {
         Args: { p_test_user_id: string }
         Returns: boolean
       }
+      driver_can_view_partner: {
+        Args: { _partner_id: string; _user_id: string }
+        Returns: boolean
+      }
       enterprise_can_view_driver: {
         Args: { _driver_id: string; _user_id: string }
         Returns: boolean
