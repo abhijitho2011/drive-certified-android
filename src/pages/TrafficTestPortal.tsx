@@ -229,57 +229,35 @@ const TrafficTestPortal = () => {
 
     setSubmitting(true);
     try {
-      // Calculate score using server-side validation
-      let score = 0;
-      for (const q of questions) {
-        const selectedAnswer = answers[q.id];
-        if (selectedAnswer) {
-          // Map the displayed answer back to original key
-          const originalKey = q.originalOptions[["a", "b", "c", "d"].indexOf(selectedAnswer.toLowerCase())]?.key;
-          if (originalKey) {
-            const { data } = await supabase.rpc("validate_traffic_answer", {
-              _question_id: q.id,
-              _selected_answer: originalKey,
-            });
-            if (data === true) score++;
-          }
+      // Submit via secure Edge Function with credential validation
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/submit-traffic-test`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({
+            test_user_id: testUserId,
+            secret_key: secretKey,
+            session_id: session.id,
+            answers: answers,
+            questions: questions.map(q => ({
+              id: q.id,
+              originalOptions: q.originalOptions,
+            })),
+          }),
         }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to submit test");
       }
 
-      const scaledScore = Math.round((score / Math.max(questions.length, 1)) * 20);
-
-      // Update session
-      const { error } = await supabase
-        .from("traffic_test_sessions")
-        .update({
-          status: "completed",
-          score: scaledScore,
-          answers: answers,
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", session.id);
-
-      if (error) throw error;
-
-      // Update driving test results if exists
-      const { data: drivingResult } = await supabase
-        .from("driving_test_results")
-        .select("id")
-        .eq("application_id", session.application_id)
-        .maybeSingle();
-
-      if (drivingResult) {
-        await supabase
-          .from("driving_test_results")
-          .update({
-            traffic_test_score: scaledScore,
-            traffic_test_answers: answers,
-            traffic_test_passed: scaledScore >= 12,
-          })
-          .eq("id", drivingResult.id);
-      }
-
-      setSession({ ...session, status: "completed", score: scaledScore });
+      setSession({ ...session, status: "completed", score: result.score });
       toast.success("Test submitted successfully!");
     } catch (error: any) {
       toast.error(error.message || "Failed to submit test");
