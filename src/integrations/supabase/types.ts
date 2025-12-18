@@ -1565,8 +1565,20 @@ export type Database = {
         Args: { p_test_user_id: string }
         Returns: boolean
       }
+      company_can_view_app: {
+        Args: { _application_id: string; _user_id: string }
+        Returns: boolean
+      }
       driver_can_view_partner: {
         Args: { _partner_id: string; _user_id: string }
+        Returns: boolean
+      }
+      driver_owns_application: {
+        Args: { _driver_id: string; _user_id: string }
+        Returns: boolean
+      }
+      driver_owns_test_result: {
+        Args: { _application_id: string; _user_id: string }
         Returns: boolean
       }
       enterprise_can_view_driver: {
@@ -1576,6 +1588,16 @@ export type Database = {
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      partner_can_access_application: {
+        Args: {
+          _app_driving_school_id: string
+          _app_medical_lab_id: string
+          _app_verification_agent_id: string
+          _partner_type: string
           _user_id: string
         }
         Returns: boolean
