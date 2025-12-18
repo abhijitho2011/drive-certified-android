@@ -1580,6 +1580,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      partner_can_view_driver: {
+        Args: { _driver_id: string; _user_id: string }
+        Returns: boolean
+      }
       validate_traffic_answer: {
         Args: { _question_id: string; _selected_answer: string }
         Returns: boolean
