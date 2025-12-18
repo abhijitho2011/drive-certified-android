@@ -28,11 +28,28 @@ const MedicalLabDashboard = () => {
     
     if (partner) {
       setPartnerData(partner);
+      // Use role-specific view that only exposes medical-related data (no driving/license data)
       const { data: apps } = await supabase
-        .from("applications")
-        .select(`*, drivers:driver_id (first_name, last_name)`)
+        .from("applications_medical_lab")
+        .select(`*`)
         .eq("medical_lab_id", partner.id);
-      setApplications(apps || []);
+      
+      // Fetch driver names separately (only for assigned drivers)
+      if (apps && apps.length > 0) {
+        const driverIds = apps.map(a => a.driver_id);
+        const { data: drivers } = await supabase
+          .from("drivers")
+          .select("id, first_name, last_name")
+          .in("id", driverIds);
+        
+        const appsWithDrivers = apps.map(app => ({
+          ...app,
+          drivers: drivers?.find(d => d.id === app.driver_id) || null
+        }));
+        setApplications(appsWithDrivers);
+      } else {
+        setApplications([]);
+      }
     }
     setLoading(false);
   };
@@ -101,14 +118,12 @@ const MedicalLabDashboard = () => {
                       <div>
                         <p className="font-medium">{app.drivers?.first_name} {app.drivers?.last_name}</p>
                         <p className="text-sm text-muted-foreground">
-                          Driving Test: {app.driving_test_passed ? "Passed" : "Pending"}
+                          Scheduled: {app.medical_test_slot ? new Date(app.medical_test_slot).toLocaleDateString() : "Not scheduled"}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <Badge variant={app.driving_test_passed ? "success" : "secondary"}>
-                        {app.driving_test_passed ? "Ready" : "Awaiting Driving Test"}
-                      </Badge>
+                      <Badge variant="secondary">Pending</Badge>
                       <Button size="sm" onClick={() => { setSelectedApp(app); setIsTestOpen(true); }}>
                         Start Exam
                       </Button>

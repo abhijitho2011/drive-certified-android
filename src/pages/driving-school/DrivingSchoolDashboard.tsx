@@ -30,11 +30,28 @@ const DrivingSchoolDashboard = () => {
     
     if (partner) {
       setPartnerData(partner);
+      // Use role-specific view that only exposes driving-related data (no medical data)
       const { data: apps } = await supabase
-        .from("applications")
-        .select(`*, drivers:driver_id (first_name, last_name)`)
+        .from("applications_driving_school")
+        .select(`*`)
         .eq("driving_school_id", partner.id);
-      setApplications(apps || []);
+      
+      // Fetch driver names separately (only for assigned drivers)
+      if (apps && apps.length > 0) {
+        const driverIds = apps.map(a => a.driver_id);
+        const { data: drivers } = await supabase
+          .from("drivers")
+          .select("id, first_name, last_name")
+          .in("id", driverIds);
+        
+        const appsWithDrivers = apps.map(app => ({
+          ...app,
+          drivers: drivers?.find(d => d.id === app.driver_id) || null
+        }));
+        setApplications(appsWithDrivers);
+      } else {
+        setApplications([]);
+      }
     }
     setLoading(false);
   };
