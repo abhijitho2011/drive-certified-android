@@ -151,7 +151,16 @@ const MedicalLabDashboard = () => {
                       <CheckCircle2 className="w-5 h-5 text-success" />
                       <p className="font-medium">{app.drivers?.first_name} {app.drivers?.last_name}</p>
                     </div>
-                    <Badge variant="success">Fit</Badge>
+                    <div className="flex items-center gap-3">
+                      <Badge variant="success">Completed</Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => { setSelectedApp(app); setIsTestOpen(true); }}
+                      >
+                        View Report
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
