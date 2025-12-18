@@ -64,20 +64,26 @@ serve(async (req) => {
 
     // Calculate score using server-side validation
     let score = 0;
-    const questionIds = questions?.map((q: any) => q.id) || [];
+    console.log("Processing answers:", JSON.stringify(answers));
+    console.log("Questions received:", questions?.length || 0);
     
     for (const q of questions || []) {
       const selectedAnswer = answers[q.id];
+      console.log(`Question ${q.id}: selected=${selectedAnswer}, originalOptions=${JSON.stringify(q.originalOptions)}`);
+      
       if (selectedAnswer && q.originalOptions) {
         // Map the displayed answer back to original key
         const optionIndex = ["a", "b", "c", "d"].indexOf(selectedAnswer.toLowerCase());
         const originalKey = q.originalOptions[optionIndex]?.key;
         
+        console.log(`Option index: ${optionIndex}, Original key: ${originalKey}`);
+        
         if (originalKey) {
-          const { data } = await supabaseAdmin.rpc("validate_traffic_answer", {
+          const { data, error: rpcError } = await supabaseAdmin.rpc("validate_traffic_answer", {
             _question_id: q.id,
             _selected_answer: originalKey,
           });
+          console.log(`Validation result for ${q.id}: ${data}, error: ${rpcError?.message}`);
           if (data === true) score++;
         }
       }
