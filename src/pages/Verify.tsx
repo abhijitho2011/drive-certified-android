@@ -40,12 +40,9 @@ const Verify = () => {
     setSearched(true);
 
     try {
-      // Query the secure public view for certificate verification
+      // Call the secure RPC function for certificate verification
       const { data, error } = await supabase
-        .from('certificates_public')
-        .select('certificate_number, masked_name, certification_vehicle_class, skill_grade, certificate_expiry_date, issue_date')
-        .eq('certificate_number', searchValue.toUpperCase().trim())
-        .maybeSingle();
+        .rpc('verify_certificate', { p_certificate_number: searchValue.toUpperCase().trim() });
 
       if (error) {
         console.error('Verification error:', error);
@@ -59,16 +56,17 @@ const Verify = () => {
           grade: "-",
           authority: "-",
         });
-      } else if (data) {
+      } else if (data && data.length > 0) {
         // Valid certificate found
+        const cert = data[0];
         setResult({
           valid: true,
-          certificateNumber: data.certificate_number,
-          driverName: data.masked_name || "***",
-          vehicleClass: data.certification_vehicle_class || "-",
-          issueDate: data.issue_date ? format(new Date(data.issue_date), 'yyyy-MM-dd') : "-",
-          expiryDate: data.certificate_expiry_date ? format(new Date(data.certificate_expiry_date), 'yyyy-MM-dd') : "-",
-          grade: data.skill_grade || "-",
+          certificateNumber: cert.certificate_number,
+          driverName: cert.masked_name || "***",
+          vehicleClass: cert.certification_vehicle_class || "-",
+          issueDate: cert.issue_date ? format(new Date(cert.issue_date), 'yyyy-MM-dd') : "-",
+          expiryDate: cert.certificate_expiry_date ? format(new Date(cert.certificate_expiry_date), 'yyyy-MM-dd') : "-",
+          grade: cert.skill_grade || "-",
           authority: "MOTRACT Certification Authority",
         });
       } else {
