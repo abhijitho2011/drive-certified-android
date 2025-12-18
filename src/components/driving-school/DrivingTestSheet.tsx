@@ -206,30 +206,29 @@ const DrivingTestSheet = ({ open, onOpenChange, application, partnerId, onComple
     
     if (data) {
       setExistingResults(data);
-      // Populate form with existing data if not submitted
-      if (!data.submitted_at) {
-        setResults({
-          identity_photo_match: data.identity_photo_match || false,
-          licence_verified: data.licence_verified || false,
-          police_clearance_verified: data.police_clearance_verified || false,
-          identity_status: data.identity_status || "pending",
-          traffic_test_answers: (data.traffic_test_answers as Record<string, string>) || {},
-          traffic_test_score: data.traffic_test_score || 0,
-          vehicle_control_score: data.vehicle_control_score || 0,
-          parallel_parking_score: data.parallel_parking_score || 0,
-          hill_driving_score: data.hill_driving_score || 0,
-          emergency_handling_score: data.emergency_handling_score || 0,
-          defensive_driving_score: data.defensive_driving_score || 0,
-          practical_notes: data.practical_notes || "",
-          brake_system_score: data.brake_system_score || 0,
-          engine_fluids_score: data.engine_fluids_score || 0,
-          tyres_score: data.tyres_score || 0,
-          lights_safety_score: data.lights_safety_score || 0,
-          diagnosis_score: data.diagnosis_score || 0,
-          inspection_notes: data.inspection_notes || "",
-          tested_by: data.tested_by || "",
-        });
-      }
+      // Always populate state so completed/submitted tests are readable.
+      // Inputs will be disabled when `submitted_at` is set.
+      setResults({
+        identity_photo_match: data.identity_photo_match || false,
+        licence_verified: data.licence_verified || false,
+        police_clearance_verified: data.police_clearance_verified || false,
+        identity_status: data.identity_status || "pending",
+        traffic_test_answers: (data.traffic_test_answers as Record<string, string>) || {},
+        traffic_test_score: data.traffic_test_score || 0,
+        vehicle_control_score: data.vehicle_control_score || 0,
+        parallel_parking_score: data.parallel_parking_score || 0,
+        hill_driving_score: data.hill_driving_score || 0,
+        emergency_handling_score: data.emergency_handling_score || 0,
+        defensive_driving_score: data.defensive_driving_score || 0,
+        practical_notes: data.practical_notes || "",
+        brake_system_score: data.brake_system_score || 0,
+        engine_fluids_score: data.engine_fluids_score || 0,
+        tyres_score: data.tyres_score || 0,
+        lights_safety_score: data.lights_safety_score || 0,
+        diagnosis_score: data.diagnosis_score || 0,
+        inspection_notes: data.inspection_notes || "",
+        tested_by: data.tested_by || "",
+      });
     }
   };
 
