@@ -244,7 +244,11 @@ export type Database = {
           district: string | null
           email: string | null
           id: string
+          industry_type: string | null
           phone: string
+          recruitment_access: boolean | null
+          recruitment_access_approved_at: string | null
+          recruitment_access_approved_by: string | null
           state: string | null
           status: string | null
           updated_at: string | null
@@ -258,7 +262,11 @@ export type Database = {
           district?: string | null
           email?: string | null
           id?: string
+          industry_type?: string | null
           phone: string
+          recruitment_access?: boolean | null
+          recruitment_access_approved_at?: string | null
+          recruitment_access_approved_by?: string | null
           state?: string | null
           status?: string | null
           updated_at?: string | null
@@ -272,7 +280,11 @@ export type Database = {
           district?: string | null
           email?: string | null
           id?: string
+          industry_type?: string | null
           phone?: string
+          recruitment_access?: boolean | null
+          recruitment_access_approved_at?: string | null
+          recruitment_access_approved_by?: string | null
           state?: string | null
           status?: string | null
           updated_at?: string | null
@@ -311,6 +323,98 @@ export type Database = {
             columns: ["state_id"]
             isOneToOne: false
             referencedRelation: "states"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      driver_employment_status: {
+        Row: {
+          availability: string | null
+          created_at: string | null
+          driver_id: string
+          employment_status: string | null
+          expected_salary_max: number | null
+          expected_salary_min: number | null
+          id: string
+          is_visible_to_employers: boolean | null
+          preferred_locations: string[] | null
+          preferred_work_types: string[] | null
+          updated_at: string | null
+          visibility_updated_at: string | null
+        }
+        Insert: {
+          availability?: string | null
+          created_at?: string | null
+          driver_id: string
+          employment_status?: string | null
+          expected_salary_max?: number | null
+          expected_salary_min?: number | null
+          id?: string
+          is_visible_to_employers?: boolean | null
+          preferred_locations?: string[] | null
+          preferred_work_types?: string[] | null
+          updated_at?: string | null
+          visibility_updated_at?: string | null
+        }
+        Update: {
+          availability?: string | null
+          created_at?: string | null
+          driver_id?: string
+          employment_status?: string | null
+          expected_salary_max?: number | null
+          expected_salary_min?: number | null
+          id?: string
+          is_visible_to_employers?: boolean | null
+          preferred_locations?: string[] | null
+          preferred_work_types?: string[] | null
+          updated_at?: string | null
+          visibility_updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_employment_status_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: true
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      driver_shortlist: {
+        Row: {
+          created_at: string | null
+          driver_id: string
+          employer_id: string
+          id: string
+          notes: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          driver_id: string
+          employer_id: string
+          id?: string
+          notes?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          driver_id?: string
+          employer_id?: string
+          id?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_shortlist_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_shortlist_employer_id_fkey"
+            columns: ["employer_id"]
+            isOneToOne: false
+            referencedRelation: "data_users"
             referencedColumns: ["id"]
           },
         ]
@@ -599,6 +703,190 @@ export type Database = {
           },
         ]
       }
+      employment_history: {
+        Row: {
+          created_at: string | null
+          driver_id: string
+          employer_id: string
+          end_date: string | null
+          id: string
+          position: string | null
+          start_date: string
+          status: string | null
+          termination_reason: string | null
+          updated_at: string | null
+          vehicle_class: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          driver_id: string
+          employer_id: string
+          end_date?: string | null
+          id?: string
+          position?: string | null
+          start_date: string
+          status?: string | null
+          termination_reason?: string | null
+          updated_at?: string | null
+          vehicle_class?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          driver_id?: string
+          employer_id?: string
+          end_date?: string | null
+          id?: string
+          position?: string | null
+          start_date?: string
+          status?: string | null
+          termination_reason?: string | null
+          updated_at?: string | null
+          vehicle_class?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employment_history_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employment_history_employer_id_fkey"
+            columns: ["employer_id"]
+            isOneToOne: false
+            referencedRelation: "data_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      experience_certificates: {
+        Row: {
+          certificate_number: string
+          created_at: string | null
+          driver_id: string
+          employer_id: string
+          employment_duration_months: number | null
+          employment_history_id: string
+          id: string
+          issue_date: string | null
+          performance_summary: string | null
+          vehicle_class: string
+          verification_id: string
+        }
+        Insert: {
+          certificate_number: string
+          created_at?: string | null
+          driver_id: string
+          employer_id: string
+          employment_duration_months?: number | null
+          employment_history_id: string
+          id?: string
+          issue_date?: string | null
+          performance_summary?: string | null
+          vehicle_class: string
+          verification_id: string
+        }
+        Update: {
+          certificate_number?: string
+          created_at?: string | null
+          driver_id?: string
+          employer_id?: string
+          employment_duration_months?: number | null
+          employment_history_id?: string
+          id?: string
+          issue_date?: string | null
+          performance_summary?: string | null
+          vehicle_class?: string
+          verification_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "experience_certificates_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "experience_certificates_employer_id_fkey"
+            columns: ["employer_id"]
+            isOneToOne: false
+            referencedRelation: "data_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "experience_certificates_employment_history_id_fkey"
+            columns: ["employment_history_id"]
+            isOneToOne: false
+            referencedRelation: "employment_history"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_requests: {
+        Row: {
+          created_at: string | null
+          driver_id: string
+          driver_response_at: string | null
+          employer_id: string
+          id: string
+          job_description: string | null
+          job_title: string
+          location: string | null
+          salary_offered: number | null
+          status: string | null
+          updated_at: string | null
+          vehicle_class_required: string | null
+          work_type: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          driver_id: string
+          driver_response_at?: string | null
+          employer_id: string
+          id?: string
+          job_description?: string | null
+          job_title: string
+          location?: string | null
+          salary_offered?: number | null
+          status?: string | null
+          updated_at?: string | null
+          vehicle_class_required?: string | null
+          work_type?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          driver_id?: string
+          driver_response_at?: string | null
+          employer_id?: string
+          id?: string
+          job_description?: string | null
+          job_title?: string
+          location?: string | null
+          salary_offered?: number | null
+          status?: string | null
+          updated_at?: string | null
+          vehicle_class_required?: string | null
+          work_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_requests_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_requests_employer_id_fkey"
+            columns: ["employer_id"]
+            isOneToOne: false
+            referencedRelation: "data_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medical_test_results: {
         Row: {
           alcohol_level: number | null
@@ -817,6 +1105,70 @@ export type Database = {
         }
         Relationships: []
       }
+      performance_ratings: {
+        Row: {
+          behaviour_rating: number | null
+          created_at: string | null
+          driver_id: string
+          employer_id: string
+          employment_history_id: string
+          id: string
+          overall_rating: number | null
+          punctuality_rating: number | null
+          remarks: string | null
+          safety_rating: number | null
+          vehicle_handling_rating: number | null
+        }
+        Insert: {
+          behaviour_rating?: number | null
+          created_at?: string | null
+          driver_id: string
+          employer_id: string
+          employment_history_id: string
+          id?: string
+          overall_rating?: number | null
+          punctuality_rating?: number | null
+          remarks?: string | null
+          safety_rating?: number | null
+          vehicle_handling_rating?: number | null
+        }
+        Update: {
+          behaviour_rating?: number | null
+          created_at?: string | null
+          driver_id?: string
+          employer_id?: string
+          employment_history_id?: string
+          id?: string
+          overall_rating?: number | null
+          punctuality_rating?: number | null
+          remarks?: string | null
+          safety_rating?: number | null
+          vehicle_handling_rating?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "performance_ratings_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "performance_ratings_employer_id_fkey"
+            columns: ["employer_id"]
+            isOneToOne: false
+            referencedRelation: "data_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "performance_ratings_employment_history_id_fkey"
+            columns: ["employment_history_id"]
+            isOneToOne: false
+            referencedRelation: "employment_history"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -843,6 +1195,57 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      rating_disputes: {
+        Row: {
+          created_at: string | null
+          driver_id: string
+          id: string
+          performance_rating_id: string
+          reason: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          driver_id: string
+          id?: string
+          performance_rating_id: string
+          reason: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          driver_id?: string
+          id?: string
+          performance_rating_id?: string
+          reason?: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rating_disputes_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rating_disputes_performance_rating_id_fkey"
+            columns: ["performance_rating_id"]
+            isOneToOne: false
+            referencedRelation: "performance_ratings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       states: {
         Row: {
@@ -1153,6 +1556,41 @@ export type Database = {
             columns: ["data_user_id"]
             isOneToOne: false
             referencedRelation: "data_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visibility_consent_logs: {
+        Row: {
+          action: string
+          created_at: string | null
+          driver_id: string
+          id: string
+          ip_address: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          driver_id: string
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          driver_id?: string
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visibility_consent_logs_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
             referencedColumns: ["id"]
           },
         ]
@@ -1573,6 +2011,7 @@ export type Database = {
         Args: { _partner_id: string; _user_id: string }
         Returns: boolean
       }
+      driver_is_visible: { Args: { _driver_id: string }; Returns: boolean }
       driver_owns_application: {
         Args: { _driver_id: string; _user_id: string }
         Returns: boolean
@@ -1581,10 +2020,16 @@ export type Database = {
         Args: { _application_id: string; _user_id: string }
         Returns: boolean
       }
+      employer_has_recruitment_access: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       enterprise_can_view_driver: {
         Args: { _driver_id: string; _user_id: string }
         Returns: boolean
       }
+      get_driver_id: { Args: { _user_id: string }; Returns: string }
+      get_employer_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
