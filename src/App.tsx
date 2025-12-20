@@ -12,6 +12,10 @@ import Verify from "./pages/Verify";
 import DriverDashboard from "./pages/driver/DriverDashboard";
 import ApplicationForm from "./pages/driver/ApplicationForm";
 import ViewApplication from "./pages/driver/ViewApplication";
+import MyApplications from "./pages/driver/MyApplications";
+import Employment from "./pages/driver/Employment";
+import JobRequests from "./pages/driver/JobRequests";
+import Experience from "./pages/driver/Experience";
 import DrivingSchoolDashboard from "./pages/driving-school/DrivingSchoolDashboard";
 import MedicalLabDashboard from "./pages/medical-lab/MedicalLabDashboard";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -39,9 +43,15 @@ const App = () => (
             {/* Driver Routes */}
             <Route path="/driver" element={<DriverDashboard />} />
             <Route path="/driver/apply" element={<ApplicationForm />} />
+            <Route path="/driver/apply/new" element={<ApplicationForm />} />
             <Route path="/driver/application" element={<ViewApplication />} />
+            <Route path="/driver/application/:id" element={<ViewApplication />} />
+            <Route path="/driver/applications" element={<MyApplications />} />
             <Route path="/driver/documents" element={<DriverDashboard />} />
             <Route path="/driver/certificates" element={<DriverDashboard />} />
+            <Route path="/driver/employment" element={<Employment />} />
+            <Route path="/driver/job-requests" element={<JobRequests />} />
+            <Route path="/driver/experience" element={<Experience />} />
             
             {/* Driving School Routes */}
             <Route path="/driving-school" element={<DrivingSchoolDashboard />} />

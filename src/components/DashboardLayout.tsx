@@ -28,9 +28,10 @@ const roleConfig = {
     title: "Driver Portal",
     navItems: [
       { label: "Dashboard", href: "/driver", icon: LayoutDashboard },
-      { label: "My Application", href: "/driver/application", icon: FileText },
-      { label: "Documents", href: "/driver/documents", icon: Upload },
-      { label: "Certificates", href: "/driver/certificates", icon: Award },
+      { label: "My Applications", href: "/driver/applications", icon: FileText },
+      { label: "Employment", href: "/driver/employment", icon: Settings },
+      { label: "Job Requests", href: "/driver/job-requests", icon: Bell },
+      { label: "Experience", href: "/driver/experience", icon: Award },
     ],
   },
   "driving-school": {
