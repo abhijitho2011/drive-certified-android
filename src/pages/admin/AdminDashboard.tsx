@@ -911,6 +911,7 @@ const AdminDashboard = () => {
                         <TableHead>Contact Person</TableHead>
                         <TableHead>Phone</TableHead>
                         <TableHead>Email</TableHead>
+                        <TableHead>Recruitment</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
@@ -922,6 +923,30 @@ const AdminDashboard = () => {
                           <TableCell>{user.contact_person}</TableCell>
                           <TableCell>{user.phone}</TableCell>
                           <TableCell>{user.email || "-"}</TableCell>
+                          <TableCell>
+                            <Badge 
+                              variant={(user as any).recruitment_access ? "approved" : "secondary"}
+                              className="cursor-pointer"
+                              onClick={async () => {
+                                const newAccess = !(user as any).recruitment_access;
+                                const { error } = await supabase
+                                  .from("data_users")
+                                  .update({ 
+                                    recruitment_access: newAccess,
+                                    recruitment_access_approved_at: newAccess ? new Date().toISOString() : null
+                                  })
+                                  .eq("id", user.id);
+                                if (error) {
+                                  toast.error("Failed to update");
+                                } else {
+                                  toast.success(newAccess ? "Recruitment access granted" : "Recruitment access revoked");
+                                  fetchData();
+                                }
+                              }}
+                            >
+                              {(user as any).recruitment_access ? "Enabled" : "Disabled"}
+                            </Badge>
+                          </TableCell>
                           <TableCell>
                             <Badge variant={user.status === "active" ? "approved" : "pending"}>
                               {user.status}

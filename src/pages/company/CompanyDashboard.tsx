@@ -5,8 +5,10 @@ import {
   Search, 
   FileSpreadsheet,
   FileText,
-  Bell,
-  Users
+  Users,
+  Bookmark,
+  Send,
+  Briefcase
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,11 +16,16 @@ import SingleVerification from "@/components/company/SingleVerification";
 import BulkVerification from "@/components/company/BulkVerification";
 import AuditLogs from "@/components/company/AuditLogs";
 import CompanyStats from "@/components/company/CompanyStats";
+import DriverSearch from "@/components/company/DriverSearch";
+import EmployerShortlist from "@/components/company/EmployerShortlist";
+import EmployerJobRequests from "@/components/company/EmployerJobRequests";
+import EmployerEmployees from "@/components/company/EmployerEmployees";
 
 interface DataUser {
   id: string;
   company_name: string;
   contact_person: string;
+  recruitment_access: boolean;
 }
 
 const CompanyDashboard = () => {
@@ -32,7 +39,7 @@ const CompanyDashboard = () => {
       
       const { data: company } = await supabase
         .from("data_users")
-        .select("id, company_name, contact_person")
+        .select("id, company_name, contact_person, recruitment_access")
         .eq("user_id", user.id)
         .maybeSingle();
       
@@ -83,7 +90,6 @@ const CompanyDashboard = () => {
   const handleBulkVerification = async (results: any[]) => {
     if (!companyData) return;
 
-    // Log each result
     const logs = results.map(r => ({
       data_user_id: companyData.id,
       verified_by_name: companyData.contact_person,
@@ -95,7 +101,6 @@ const CompanyDashboard = () => {
       result_details: r
     }));
 
-    // Insert in batches
     const batchSize = 50;
     for (let i = 0; i < logs.length; i += batchSize) {
       await supabase.from("verification_logs" as any).insert(logs.slice(i, i + batchSize) as any);
@@ -118,9 +123,9 @@ const CompanyDashboard = () => {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">Enterprise Verification Portal</h1>
+            <h1 className="text-2xl font-bold">Enterprise Portal</h1>
             <p className="text-muted-foreground">
-              Verify driver certifications and manage fleet compliance
+              Verify driver certifications, recruit certified drivers, and manage your fleet
             </p>
           </div>
         </div>
@@ -130,21 +135,34 @@ const CompanyDashboard = () => {
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-flex">
+          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-7 lg:w-auto lg:inline-flex">
             <TabsTrigger value="verify" className="flex items-center gap-2">
               <Search className="w-4 h-4" />
-              <span className="hidden sm:inline">Single Verify</span>
-              <span className="sm:hidden">Verify</span>
+              <span className="hidden sm:inline">Verify</span>
             </TabsTrigger>
             <TabsTrigger value="bulk" className="flex items-center gap-2">
               <FileSpreadsheet className="w-4 h-4" />
-              <span className="hidden sm:inline">Bulk Verify</span>
-              <span className="sm:hidden">Bulk</span>
+              <span className="hidden sm:inline">Bulk</span>
+            </TabsTrigger>
+            <TabsTrigger value="recruit" className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              <span className="hidden sm:inline">Recruit</span>
+            </TabsTrigger>
+            <TabsTrigger value="shortlist" className="flex items-center gap-2">
+              <Bookmark className="w-4 h-4" />
+              <span className="hidden sm:inline">Shortlist</span>
+            </TabsTrigger>
+            <TabsTrigger value="requests" className="flex items-center gap-2">
+              <Send className="w-4 h-4" />
+              <span className="hidden sm:inline">Requests</span>
+            </TabsTrigger>
+            <TabsTrigger value="employees" className="flex items-center gap-2">
+              <Briefcase className="w-4 h-4" />
+              <span className="hidden sm:inline">Employees</span>
             </TabsTrigger>
             <TabsTrigger value="audit" className="flex items-center gap-2">
               <FileText className="w-4 h-4" />
-              <span className="hidden sm:inline">Audit Logs</span>
-              <span className="sm:hidden">Logs</span>
+              <span className="hidden sm:inline">Logs</span>
             </TabsTrigger>
           </TabsList>
 
@@ -162,6 +180,25 @@ const CompanyDashboard = () => {
               companyName={companyData.company_name}
               onBulkVerificationComplete={handleBulkVerification}
             />
+          </TabsContent>
+
+          <TabsContent value="recruit">
+            <DriverSearch 
+              employerId={companyData.id}
+              hasRecruitmentAccess={companyData.recruitment_access || false}
+            />
+          </TabsContent>
+
+          <TabsContent value="shortlist">
+            <EmployerShortlist employerId={companyData.id} />
+          </TabsContent>
+
+          <TabsContent value="requests">
+            <EmployerJobRequests employerId={companyData.id} />
+          </TabsContent>
+
+          <TabsContent value="employees">
+            <EmployerEmployees employerId={companyData.id} />
           </TabsContent>
 
           <TabsContent value="audit">
