@@ -824,6 +824,71 @@ export type Database = {
           },
         ]
       }
+      job_postings: {
+        Row: {
+          availability_required: string | null
+          created_at: string | null
+          description: string | null
+          employer_id: string
+          experience_years_min: number | null
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          location: string | null
+          salary_max: number | null
+          salary_min: number | null
+          skill_grade_required: string[] | null
+          title: string
+          updated_at: string | null
+          vehicle_class_required: string[] | null
+          work_type: string | null
+        }
+        Insert: {
+          availability_required?: string | null
+          created_at?: string | null
+          description?: string | null
+          employer_id: string
+          experience_years_min?: number | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          location?: string | null
+          salary_max?: number | null
+          salary_min?: number | null
+          skill_grade_required?: string[] | null
+          title: string
+          updated_at?: string | null
+          vehicle_class_required?: string[] | null
+          work_type?: string | null
+        }
+        Update: {
+          availability_required?: string | null
+          created_at?: string | null
+          description?: string | null
+          employer_id?: string
+          experience_years_min?: number | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          location?: string | null
+          salary_max?: number | null
+          salary_min?: number | null
+          skill_grade_required?: string[] | null
+          title?: string
+          updated_at?: string | null
+          vehicle_class_required?: string[] | null
+          work_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_postings_employer_id_fkey"
+            columns: ["employer_id"]
+            isOneToOne: false
+            referencedRelation: "data_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_requests: {
         Row: {
           created_at: string | null
