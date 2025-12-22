@@ -1,25 +1,14 @@
 import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Search, 
-  FileSpreadsheet,
-  FileText,
-  Users,
-  Bookmark,
-  Send,
-  Briefcase
-} from "lucide-react";
+import { Shield, Users, Briefcase, FileText } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import SingleVerification from "@/components/company/SingleVerification";
-import BulkVerification from "@/components/company/BulkVerification";
+import VerificationTab from "@/components/company/VerificationTab";
+import RecruitTab from "@/components/company/RecruitTab";
+import EmployerEmployees from "@/components/company/EmployerEmployees";
 import AuditLogs from "@/components/company/AuditLogs";
 import CompanyStats from "@/components/company/CompanyStats";
-import DriverSearch from "@/components/company/DriverSearch";
-import EmployerShortlist from "@/components/company/EmployerShortlist";
-import EmployerJobRequests from "@/components/company/EmployerJobRequests";
-import EmployerEmployees from "@/components/company/EmployerEmployees";
 
 interface DataUser {
   id: string;
@@ -31,7 +20,7 @@ interface DataUser {
 const CompanyDashboard = () => {
   const { user } = useAuth();
   const [companyData, setCompanyData] = useState<DataUser | null>(null);
-  const [activeTab, setActiveTab] = useState("verify");
+  const [activeTab, setActiveTab] = useState("verification");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -120,7 +109,6 @@ const CompanyDashboard = () => {
   return (
     <DashboardLayout role="company" userName={companyData.company_name}>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold">Enterprise Portal</h1>
@@ -130,78 +118,50 @@ const CompanyDashboard = () => {
           </div>
         </div>
 
-        {/* Stats */}
         <CompanyStats dataUserId={companyData.id} />
 
-        {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-7 lg:w-auto lg:inline-flex">
-            <TabsTrigger value="verify" className="flex items-center gap-2">
-              <Search className="w-4 h-4" />
-              <span className="hidden sm:inline">Verify</span>
-            </TabsTrigger>
-            <TabsTrigger value="bulk" className="flex items-center gap-2">
-              <FileSpreadsheet className="w-4 h-4" />
-              <span className="hidden sm:inline">Bulk</span>
-            </TabsTrigger>
-            <TabsTrigger value="recruit" className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              <span className="hidden sm:inline">Recruit</span>
-            </TabsTrigger>
-            <TabsTrigger value="shortlist" className="flex items-center gap-2">
-              <Bookmark className="w-4 h-4" />
-              <span className="hidden sm:inline">Shortlist</span>
-            </TabsTrigger>
-            <TabsTrigger value="requests" className="flex items-center gap-2">
-              <Send className="w-4 h-4" />
-              <span className="hidden sm:inline">Requests</span>
+          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-flex">
+            <TabsTrigger value="verification" className="flex items-center gap-2">
+              <Shield className="w-4 h-4" />
+              <span className="hidden sm:inline">Verification</span>
             </TabsTrigger>
             <TabsTrigger value="employees" className="flex items-center gap-2">
-              <Briefcase className="w-4 h-4" />
+              <Users className="w-4 h-4" />
               <span className="hidden sm:inline">Employees</span>
             </TabsTrigger>
-            <TabsTrigger value="audit" className="flex items-center gap-2">
+            <TabsTrigger value="recruit" className="flex items-center gap-2">
+              <Briefcase className="w-4 h-4" />
+              <span className="hidden sm:inline">Recruit</span>
+            </TabsTrigger>
+            <TabsTrigger value="logs" className="flex items-center gap-2">
               <FileText className="w-4 h-4" />
               <span className="hidden sm:inline">Logs</span>
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="verify">
-            <SingleVerification 
+          <TabsContent value="verification">
+            <VerificationTab
               dataUserId={companyData.id}
               companyName={companyData.company_name}
-              onVerificationComplete={handleSingleVerification}
+              contactPerson={companyData.contact_person}
+              onSingleVerification={handleSingleVerification}
+              onBulkVerification={handleBulkVerification}
             />
-          </TabsContent>
-
-          <TabsContent value="bulk">
-            <BulkVerification 
-              dataUserId={companyData.id}
-              companyName={companyData.company_name}
-              onBulkVerificationComplete={handleBulkVerification}
-            />
-          </TabsContent>
-
-          <TabsContent value="recruit">
-            <DriverSearch 
-              employerId={companyData.id}
-              hasRecruitmentAccess={companyData.recruitment_access || false}
-            />
-          </TabsContent>
-
-          <TabsContent value="shortlist">
-            <EmployerShortlist employerId={companyData.id} />
-          </TabsContent>
-
-          <TabsContent value="requests">
-            <EmployerJobRequests employerId={companyData.id} />
           </TabsContent>
 
           <TabsContent value="employees">
             <EmployerEmployees employerId={companyData.id} />
           </TabsContent>
 
-          <TabsContent value="audit">
+          <TabsContent value="recruit">
+            <RecruitTab
+              employerId={companyData.id}
+              hasRecruitmentAccess={companyData.recruitment_access || false}
+            />
+          </TabsContent>
+
+          <TabsContent value="logs">
             <AuditLogs dataUserId={companyData.id} />
           </TabsContent>
         </Tabs>
