@@ -12,7 +12,10 @@ import {
   Clock,
   Check,
   X,
-  Inbox
+  Inbox,
+  Send,
+  ArrowDownLeft,
+  ArrowUpRight
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,6 +33,7 @@ interface JobRequest {
   work_type: string | null;
   status: string;
   created_at: string;
+  type: "received" | "sent";
   employer: {
     company_name: string;
     industry_type: string | null;
@@ -41,7 +45,7 @@ const JobRequests = () => {
   const [driverData, setDriverData] = useState<{ first_name: string; last_name: string; id: string } | null>(null);
   const [requests, setRequests] = useState<JobRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("pending");
+  const [activeTab, setActiveTab] = useState("all");
 
   useEffect(() => {
     fetchData();
@@ -69,7 +73,13 @@ const JobRequests = () => {
         .eq("driver_id", driver.id)
         .order("created_at", { ascending: false });
 
-      setRequests(jobRequests as JobRequest[] || []);
+      // Map requests with type (sent = applied by driver, received = sent by employer)
+      const mappedRequests = (jobRequests || []).map((r: any) => ({
+        ...r,
+        type: r.status === "applied" ? "sent" : "received"
+      }));
+
+      setRequests(mappedRequests as JobRequest[]);
     }
     setLoading(false);
   };
@@ -93,23 +103,43 @@ const JobRequests = () => {
     }
   };
 
+  const withdrawApplication = async (requestId: string) => {
+    try {
+      await supabase
+        .from("job_requests")
+        .delete()
+        .eq("id", requestId);
+
+      toast.success("Application withdrawn");
+      fetchData();
+    } catch (error) {
+      toast.error("Failed to withdraw application");
+    }
+  };
+
   const userName = driverData 
     ? `${driverData.first_name} ${driverData.last_name}` 
     : "Driver";
 
+  const receivedRequests = requests.filter(r => r.type === "received");
+  const sentRequests = requests.filter(r => r.type === "sent");
+
   const filteredRequests = requests.filter(r => {
-    if (activeTab === "pending") return r.status === "pending";
-    if (activeTab === "accepted") return r.status === "accepted" || r.status === "hired";
-    if (activeTab === "declined") return r.status === "rejected";
+    if (activeTab === "received") return r.type === "received";
+    if (activeTab === "sent") return r.type === "sent";
+    if (activeTab === "pending") return r.status === "pending" || r.status === "applied";
     return true;
   });
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, type: "received" | "sent") => {
+    if (status === "applied") {
+      return <Badge variant="secondary">Awaiting Response</Badge>;
+    }
     switch (status) {
       case "pending": return <Badge variant="secondary">Pending</Badge>;
       case "accepted": return <Badge className="bg-green-500">Accepted</Badge>;
       case "hired": return <Badge className="bg-blue-500">Hired</Badge>;
-      case "rejected": return <Badge variant="destructive">Declined</Badge>;
+      case "rejected": return <Badge variant="destructive">{type === "sent" ? "Not Selected" : "Declined"}</Badge>;
       case "withdrawn": return <Badge variant="outline">Withdrawn</Badge>;
       default: return <Badge variant="secondary">{status}</Badge>;
     }
@@ -131,15 +161,29 @@ const JobRequests = () => {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Job Requests</h1>
-          <p className="text-muted-foreground">View and respond to job offers from employers</p>
+          <p className="text-muted-foreground">View job offers and your applications</p>
         </div>
 
         <div className="grid md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="pt-6">
               <div className="text-center">
-                <p className="text-3xl font-bold">{requests.filter(r => r.status === "pending").length}</p>
-                <p className="text-sm text-muted-foreground">Pending</p>
+                <div className="flex items-center justify-center gap-2">
+                  <ArrowDownLeft className="w-4 h-4 text-blue-500" />
+                  <p className="text-3xl font-bold">{receivedRequests.length}</p>
+                </div>
+                <p className="text-sm text-muted-foreground">Received</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-2">
+                  <ArrowUpRight className="w-4 h-4 text-purple-500" />
+                  <p className="text-3xl font-bold">{sentRequests.length}</p>
+                </div>
+                <p className="text-sm text-muted-foreground">Applied</p>
               </div>
             </CardContent>
           </Card>
@@ -156,18 +200,10 @@ const JobRequests = () => {
           <Card>
             <CardContent className="pt-6">
               <div className="text-center">
-                <p className="text-3xl font-bold text-red-500">
-                  {requests.filter(r => r.status === "rejected").length}
+                <p className="text-3xl font-bold text-amber-500">
+                  {requests.filter(r => r.status === "pending" || r.status === "applied").length}
                 </p>
-                <p className="text-sm text-muted-foreground">Declined</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <p className="text-3xl font-bold">{requests.length}</p>
-                <p className="text-sm text-muted-foreground">Total</p>
+                <p className="text-sm text-muted-foreground">Pending</p>
               </div>
             </CardContent>
           </Card>
@@ -175,16 +211,20 @@ const JobRequests = () => {
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
+            <TabsTrigger value="all">
+              All ({requests.length})
+            </TabsTrigger>
+            <TabsTrigger value="received">
+              <ArrowDownLeft className="w-3 h-3 mr-1" />
+              Received ({receivedRequests.length})
+            </TabsTrigger>
+            <TabsTrigger value="sent">
+              <ArrowUpRight className="w-3 h-3 mr-1" />
+              Applied ({sentRequests.length})
+            </TabsTrigger>
             <TabsTrigger value="pending">
-              Pending ({requests.filter(r => r.status === "pending").length})
+              Pending ({requests.filter(r => r.status === "pending" || r.status === "applied").length})
             </TabsTrigger>
-            <TabsTrigger value="accepted">
-              Accepted ({requests.filter(r => r.status === "accepted" || r.status === "hired").length})
-            </TabsTrigger>
-            <TabsTrigger value="declined">
-              Declined ({requests.filter(r => r.status === "rejected").length})
-            </TabsTrigger>
-            <TabsTrigger value="all">All</TabsTrigger>
           </TabsList>
 
           <TabsContent value={activeTab} className="mt-4">
@@ -194,8 +234,10 @@ const JobRequests = () => {
                   <Inbox className="w-12 h-12 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No Job Requests</h3>
                   <p className="text-muted-foreground text-center">
-                    {activeTab === "pending" 
-                      ? "You don't have any pending job requests" 
+                    {activeTab === "received" 
+                      ? "You haven't received any job offers yet" 
+                      : activeTab === "sent"
+                      ? "You haven't applied to any jobs yet"
                       : "No requests in this category"}
                   </p>
                 </CardContent>
@@ -208,17 +250,30 @@ const JobRequests = () => {
                       <div className="flex items-start justify-between">
                         <div className="flex items-start gap-3">
                           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <Building2 className="w-5 h-5 text-primary" />
+                            {request.type === "sent" ? (
+                              <Send className="w-5 h-5 text-primary" />
+                            ) : (
+                              <Building2 className="w-5 h-5 text-primary" />
+                            )}
                           </div>
                           <div>
-                            <CardTitle className="text-lg">{request.job_title}</CardTitle>
+                            <div className="flex items-center gap-2">
+                              <CardTitle className="text-lg">{request.job_title}</CardTitle>
+                              <Badge variant="outline" className="text-xs">
+                                {request.type === "sent" ? (
+                                  <><ArrowUpRight className="w-3 h-3 mr-1" />Applied</>
+                                ) : (
+                                  <><ArrowDownLeft className="w-3 h-3 mr-1" />Offer</>
+                                )}
+                              </Badge>
+                            </div>
                             <CardDescription>
                               {request.employer?.company_name || "Unknown Company"}
                               {request.employer?.industry_type && ` • ${request.employer.industry_type}`}
                             </CardDescription>
                           </div>
                         </div>
-                        {getStatusBadge(request.status)}
+                        {getStatusBadge(request.status, request.type)}
                       </div>
                     </CardHeader>
                     <CardContent>
@@ -255,10 +310,12 @@ const JobRequests = () => {
                       <div className="flex items-center justify-between pt-4 border-t">
                         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                           <Clock className="w-4 h-4" />
-                          <span>Received {format(new Date(request.created_at), "MMM d, yyyy")}</span>
+                          <span>
+                            {request.type === "sent" ? "Applied" : "Received"} {format(new Date(request.created_at), "MMM d, yyyy")}
+                          </span>
                         </div>
 
-                        {request.status === "pending" && (
+                        {request.type === "received" && request.status === "pending" && (
                           <div className="flex gap-2">
                             <Button 
                               variant="outline" 
@@ -276,6 +333,17 @@ const JobRequests = () => {
                               Accept
                             </Button>
                           </div>
+                        )}
+
+                        {request.type === "sent" && request.status === "applied" && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => withdrawApplication(request.id)}
+                          >
+                            <X className="w-4 h-4 mr-1" />
+                            Withdraw
+                          </Button>
                         )}
                       </div>
                     </CardContent>

@@ -3,10 +3,11 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Briefcase, MapPin, Clock, IndianRupee, Send } from "lucide-react";
+import { Briefcase, MapPin, Clock, IndianRupee, Send, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface JobPosting {
   id: string;
@@ -20,19 +21,22 @@ interface JobPosting {
   salary_min: number | null;
   salary_max: number | null;
   created_at: string;
+  employer_id: string;
   employer: {
     company_name: string;
     district: string | null;
     state: string | null;
   };
+  applied?: boolean;
 }
 
 const Openings = () => {
   const { user } = useAuth();
   const [openings, setOpenings] = useState<JobPosting[]>([]);
   const [loading, setLoading] = useState(true);
+  const [applying, setApplying] = useState<string | null>(null);
   const [driverData, setDriverData] = useState<any>(null);
-  const [driverCerts, setDriverCerts] = useState<any[]>([]);
+  const [appliedJobs, setAppliedJobs] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const fetchData = async () => {
@@ -61,7 +65,16 @@ const Openings = () => {
         .eq("admin_approved", true)
         .not("certificate_number", "is", null);
 
-      setDriverCerts(certs || []);
+      // Get existing applications from driver
+      const { data: existingApps } = await supabase
+        .from("job_requests")
+        .select("job_title, employer_id")
+        .eq("driver_id", driver.id);
+
+      const appliedSet = new Set(
+        (existingApps || []).map((a) => `${a.employer_id}-${a.job_title}`)
+      );
+      setAppliedJobs(appliedSet);
 
       // Get all active job postings
       const { data: postings, error } = await supabase
@@ -109,7 +122,8 @@ const Openings = () => {
 
       setOpenings(matchingPostings.map((p: any) => ({
         ...p,
-        employer: p.data_users
+        employer: p.data_users,
+        applied: appliedSet.has(`${p.employer_id}-${p.title}`)
       })));
       setLoading(false);
     };
@@ -120,36 +134,38 @@ const Openings = () => {
   const applyToJob = async (posting: JobPosting) => {
     if (!driverData) return;
 
+    setApplying(posting.id);
+
     try {
-      // Check if already applied
-      const { data: existing } = await supabase
+      // Create a job request from driver side
+      const { error } = await supabase
         .from("job_requests")
-        .select("id")
-        .eq("driver_id", driverData.id)
-        .eq("job_title", posting.title)
-        .maybeSingle();
+        .insert({
+          driver_id: driverData.id,
+          employer_id: posting.employer_id,
+          job_title: posting.title,
+          job_description: posting.description,
+          vehicle_class_required: posting.vehicle_class_required?.[0] || null,
+          location: posting.location,
+          salary_offered: posting.salary_min,
+          work_type: posting.work_type,
+          status: "applied" // Driver applied, employer needs to respond
+        });
 
-      if (existing) {
-        toast.info("You have already applied for this position");
-        return;
-      }
+      if (error) throw error;
 
-      // Get employer_id from data_users
-      const { data: employer } = await supabase
-        .from("data_users")
-        .select("id")
-        .eq("company_name", posting.employer.company_name)
-        .maybeSingle();
-
-      if (!employer) {
-        toast.error("Could not find employer");
-        return;
-      }
-
-      // This creates a job request from driver side - employer needs to approve
-      toast.success("Interest registered! The employer will contact you if interested.");
+      toast.success("Application submitted successfully!");
+      
+      // Update local state
+      setAppliedJobs(prev => new Set([...prev, `${posting.employer_id}-${posting.title}`]));
+      setOpenings(prev => prev.map(p => 
+        p.id === posting.id ? { ...p, applied: true } : p
+      ));
     } catch (error: any) {
-      toast.error("Failed to apply");
+      console.error("Error applying:", error);
+      toast.error("Failed to submit application");
+    } finally {
+      setApplying(null);
     }
   };
 
@@ -168,7 +184,19 @@ const Openings = () => {
         </div>
 
         {loading ? (
-          <p className="text-center text-muted-foreground py-8">Loading openings...</p>
+          <div className="grid gap-4 md:grid-cols-2">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i}>
+                <CardHeader>
+                  <Skeleton className="h-6 w-48" />
+                  <Skeleton className="h-4 w-32 mt-2" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-20 w-full" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         ) : openings.length === 0 ? (
           <Card>
             <CardContent className="pt-6">
@@ -203,7 +231,7 @@ const Openings = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {posting.description && (
-                    <p className="text-sm text-muted-foreground">{posting.description}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{posting.description}</p>
                   )}
 
                   <div className="flex flex-wrap gap-2">
@@ -233,10 +261,21 @@ const Openings = () => {
                     )}
                   </div>
 
-                  <Button className="w-full" onClick={() => applyToJob(posting)}>
-                    <Send className="w-4 h-4 mr-2" />
-                    Express Interest
-                  </Button>
+                  {posting.applied ? (
+                    <Button className="w-full" variant="secondary" disabled>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Applied
+                    </Button>
+                  ) : (
+                    <Button 
+                      className="w-full" 
+                      onClick={() => applyToJob(posting)}
+                      disabled={applying === posting.id}
+                    >
+                      <Send className="w-4 h-4 mr-2" />
+                      {applying === posting.id ? "Applying..." : "Apply Now"}
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ))}
