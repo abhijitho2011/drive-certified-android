@@ -700,12 +700,12 @@ const RecruitTab = ({ employerId, hasRecruitmentAccess }: RecruitTabProps) => {
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4 p-4 bg-muted/50 rounded-lg">
                   <div className="space-y-2">
                     <Label>Vehicle Class</Label>
-                    <Select value={filters.vehicleClass} onValueChange={(v) => setFilters({ ...filters, vehicleClass: v })}>
+                    <Select value={filters.vehicleClass || "__any__"} onValueChange={(v) => setFilters({ ...filters, vehicleClass: v === "__any__" ? "" : v })}>
                       <SelectTrigger>
                         <SelectValue placeholder="Any" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Any</SelectItem>
+                        <SelectItem value="__any__">Any</SelectItem>
                         {VEHICLE_CLASSES.map((vc) => (
                           <SelectItem key={vc} value={vc}>{vc}</SelectItem>
                         ))}
@@ -714,12 +714,12 @@ const RecruitTab = ({ employerId, hasRecruitmentAccess }: RecruitTabProps) => {
                   </div>
                   <div className="space-y-2">
                     <Label>Skill Grade</Label>
-                    <Select value={filters.skillGrade} onValueChange={(v) => setFilters({ ...filters, skillGrade: v })}>
+                    <Select value={filters.skillGrade || "__any__"} onValueChange={(v) => setFilters({ ...filters, skillGrade: v === "__any__" ? "" : v })}>
                       <SelectTrigger>
                         <SelectValue placeholder="Any" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Any</SelectItem>
+                        <SelectItem value="__any__">Any</SelectItem>
                         <SelectItem value="A">Grade A</SelectItem>
                         <SelectItem value="B">Grade B</SelectItem>
                         <SelectItem value="C">Grade C</SelectItem>
@@ -728,12 +728,12 @@ const RecruitTab = ({ employerId, hasRecruitmentAccess }: RecruitTabProps) => {
                   </div>
                   <div className="space-y-2">
                     <Label>Availability</Label>
-                    <Select value={filters.availability} onValueChange={(v) => setFilters({ ...filters, availability: v })}>
+                    <Select value={filters.availability || "__any__"} onValueChange={(v) => setFilters({ ...filters, availability: v === "__any__" ? "" : v })}>
                       <SelectTrigger>
                         <SelectValue placeholder="Any" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Any</SelectItem>
+                        <SelectItem value="__any__">Any</SelectItem>
                         {AVAILABILITY_OPTIONS.map((a) => (
                           <SelectItem key={a} value={a}>{a.replace("_", " ")}</SelectItem>
                         ))}
@@ -742,12 +742,12 @@ const RecruitTab = ({ employerId, hasRecruitmentAccess }: RecruitTabProps) => {
                   </div>
                   <div className="space-y-2">
                     <Label>Work Type</Label>
-                    <Select value={filters.workType} onValueChange={(v) => setFilters({ ...filters, workType: v })}>
+                    <Select value={filters.workType || "__any__"} onValueChange={(v) => setFilters({ ...filters, workType: v === "__any__" ? "" : v })}>
                       <SelectTrigger>
                         <SelectValue placeholder="Any" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Any</SelectItem>
+                        <SelectItem value="__any__">Any</SelectItem>
                         {WORK_TYPES.map((wt) => (
                           <SelectItem key={wt} value={wt}>{wt}</SelectItem>
                         ))}
@@ -1269,14 +1269,14 @@ const RecruitTab = ({ employerId, hasRecruitmentAccess }: RecruitTabProps) => {
               <div className="space-y-2">
                 <Label>Availability Required</Label>
                 <Select
-                  value={postForm.availability}
-                  onValueChange={(v) => setPostForm({ ...postForm, availability: v })}
+                  value={postForm.availability || "__any__"}
+                  onValueChange={(v) => setPostForm({ ...postForm, availability: v === "__any__" ? "" : v })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Any" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Any</SelectItem>
+                    <SelectItem value="__any__">Any</SelectItem>
                     {AVAILABILITY_OPTIONS.map((a) => (
                       <SelectItem key={a} value={a}>{a.replace("_", " ")}</SelectItem>
                     ))}
@@ -1286,14 +1286,14 @@ const RecruitTab = ({ employerId, hasRecruitmentAccess }: RecruitTabProps) => {
               <div className="space-y-2">
                 <Label>Work Type</Label>
                 <Select
-                  value={postForm.workType}
-                  onValueChange={(v) => setPostForm({ ...postForm, workType: v })}
+                  value={postForm.workType || "__any__"}
+                  onValueChange={(v) => setPostForm({ ...postForm, workType: v === "__any__" ? "" : v })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Any" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Any</SelectItem>
+                    <SelectItem value="__any__">Any</SelectItem>
                     {WORK_TYPES.map((wt) => (
                       <SelectItem key={wt} value={wt}>{wt}</SelectItem>
                     ))}
