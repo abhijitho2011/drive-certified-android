@@ -138,18 +138,13 @@ const ApplicationForm = () => {
           currentAddress: driver.address || "",
         }));
 
-        // Check for existing application
+        // Check for existing pending application (not approved/rejected ones)
         const { data: existingApp } = await supabase
           .from("applications")
           .select("*")
           .eq("driver_id", driver.id)
+          .eq("status", "pending")
           .maybeSingle();
-
-        if (existingApp && existingApp.status !== 'pending') {
-          toast.error("You already have an active application");
-          navigate("/driver");
-          return;
-        }
 
         // If pending application exists, load its data
         if (existingApp) {
