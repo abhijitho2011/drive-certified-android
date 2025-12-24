@@ -38,11 +38,15 @@ const DriverDashboard = () => {
       if (driver) {
         setDriverData(driver);
         
-        // Fetch application if driver exists
+        // Fetch most recent pending or in-progress application
         const { data: app } = await supabase
           .from("applications")
           .select("*")
           .eq("driver_id", driver.id)
+          .in("status", ["pending", "approved"])
+          .is("certificate_number", null)
+          .order("created_at", { ascending: false })
+          .limit(1)
           .maybeSingle();
         
         setApplication(app);
@@ -108,6 +112,12 @@ const DriverDashboard = () => {
       label: "My Certificates", 
       href: "/driver/certificates",
       description: "View issued certificates"
+    },
+    { 
+      icon: Car, 
+      label: "New Application", 
+      href: "/driver/apply",
+      description: "Apply for a new category"
     },
   ];
 
@@ -191,7 +201,7 @@ const DriverDashboard = () => {
         </Card>
 
         {/* Quick Actions */}
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
           {quickActions.map((action, index) => (
             <Link key={index} to={action.href}>
               <Card className="h-full hover:border-primary/50 transition-colors cursor-pointer group">
