@@ -1,0 +1,44 @@
+services:
+  # Backend Web Service
+  - type: web
+    name: drive-certified-backend
+    runtime: node
+    buildCommand: npm install && npm run build && npx prisma generate
+    startCommand: npx prisma migrate deploy && npm run start:prod
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: DATABASE_URL
+        fromDatabase:
+          name: drive-certified-db
+          property: connectionString
+      - key: FRONTEND_URL
+        fromService:
+          type: static_site
+          name: drive-certified-frontend
+          property: url
+      - key: JWT_SECRET
+        generateValue: true
+    rootDir: backend
+
+  # Frontend Static Site
+  - type: static_site
+    name: drive-certified-frontend
+    runtime: static
+    buildCommand: npm install && npm run build
+    publishDir: dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: drive-certified-backend
+          property: url
+      - key: VITE_WS_URL
+        fromService:
+          type: web
+          name: drive-certified-backend
+          property: url
+
+databases:
+  - name: drive-certified-db
+    plan: free # Render Free Tier PostgreSQL

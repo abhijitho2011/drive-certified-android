@@ -1,0 +1,314 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  driver
+  driving_school
+  medical_lab
+  company_verifier
+}
+
+enum ApplicationStatus {
+  pending
+  in_review
+  approved
+  rejected
+}
+
+enum PartnerType {
+  driving_school
+  medical_lab
+}
+
+enum EmploymentStatus {
+  employed
+  self_employed
+  unemployed
+  looking
+}
+
+enum Availability {
+  full_time
+  part_time
+  contract
+}
+
+enum EmploymentHistoryStatus {
+  active
+  completed
+  terminated
+}
+
+enum JobRequestStatus {
+  pending
+  accepted
+  rejected
+  withdrawn
+  hired
+}
+
+enum DisputeStatus {
+  pending
+  resolved
+  rejected
+}
+
+enum VisibilityAction {
+  opt_in
+  opt_out
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile   Profile?
+  userRoles UserRole[]
+  driver    Driver?
+  partner   Partner?
+  dataUser  DataUser?
+}
+
+model Profile {
+  id        String   @id // Maps to User.id
+  user      User     @relation(fields: [id], references: [id], onDelete: Cascade)
+  phone     String   @unique
+  firstName String?
+  lastName  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UserRole {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role
+
+  @@unique([userId, role])
+}
+
+model Driver {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName String
+  lastName  String
+  address   String
+  district  String
+  state     String
+  pinCode   String
+  phone     String
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  applications         Application[]
+  employmentStatus     DriverEmploymentStatus?
+  employmentHistory    EmploymentHistory[]
+  performanceRatings   PerformanceRating[]
+  experienceCertificates ExperienceCertificate[]
+  jobRequests          JobRequest[]
+  shortlistedBy        DriverShortlist[]
+  visibilityConsentLogs VisibilityConsentLog[]
+  ratingDisputes       RatingDispute[]
+}
+
+model Partner {
+  id            String      @id @default(uuid())
+  userId        String      @unique
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  partnerType   PartnerType
+  name          String
+  address       String
+  contactNumber String
+  gst           String?
+  district      String
+  state         String
+  status        String      @default("active")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  drivingSchoolApplications Application[] @relation("DrivingSchool")
+  medicalLabApplications    Application[] @relation("MedicalLab")
+}
+
+model DataUser {
+  id                          String    @id @default(uuid())
+  userId                      String    @unique
+  user                        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName                 String
+  contactPerson               String
+  phone                       String
+  email                       String?
+  address                     String?
+  district                    String?
+  state                       String?
+  status                      String    @default("active")
+  recruitmentAccess           Boolean   @default(false)
+  industryType                String?
+  recruitmentAccessApprovedAt DateTime?
+  recruitmentAccessApprovedBy String? // UUID
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
+
+  employmentHistory      EmploymentHistory[]
+  performanceRatings     PerformanceRating[]
+  experienceCertificates ExperienceCertificate[]
+  jobRequests            JobRequest[]
+  driverShortlist        DriverShortlist[]
+}
+
+model Application {
+  id               String            @id @default(uuid())
+  driverId         String
+  driver           Driver            @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  status           ApplicationStatus @default(pending)
+  drivingSchoolId  String?
+  drivingSchool    Partner?          @relation("DrivingSchool", fields: [drivingSchoolId], references: [id])
+  medicalLabId     String?
+  medicalLab       Partner?          @relation("MedicalLab", fields: [medicalLabId], references: [id])
+  identityVerified Boolean           @default(false)
+  drivingTestPassed Boolean          @default(false)
+  medicalTestPassed Boolean          @default(false)
+  educationVerified Boolean          @default(false)
+  adminApproved    Boolean           @default(false)
+  certificateNumber String?
+  notes            String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+}
+
+model DriverEmploymentStatus {
+  id                  String           @id @default(uuid())
+  driverId            String           @unique
+  driver              Driver           @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  employmentStatus    EmploymentStatus @default(unemployed)
+  availability        Availability?
+  preferredWorkTypes  String[]         @default([])
+  preferredLocations  String[]         @default([])
+  expectedSalaryMin   Decimal?
+  expectedSalaryMax   Decimal?
+  isVisibleToEmployers Boolean         @default(false)
+  visibilityUpdatedAt DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+}
+
+model EmploymentHistory {
+  id                String                  @id @default(uuid())
+  driverId          String
+  driver            Driver                  @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  employerId        String
+  employer          DataUser                @relation(fields: [employerId], references: [id], onDelete: Cascade)
+  position          String?
+  vehicleClass      String?
+  startDate         DateTime                @db.Date
+  endDate           DateTime?               @db.Date
+  status            EmploymentHistoryStatus @default(active)
+  terminationReason String?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  performanceRatings     PerformanceRating[]
+  experienceCertificates ExperienceCertificate[]
+}
+
+model PerformanceRating {
+  id                    String            @id @default(uuid())
+  employmentHistoryId   String
+  employmentHistory     EmploymentHistory @relation(fields: [employmentHistoryId], references: [id], onDelete: Cascade)
+  employerId            String
+  employer              DataUser          @relation(fields: [employerId], references: [id], onDelete: Cascade)
+  driverId              String
+  driver                Driver            @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  punctualityRating     Int?
+  safetyRating          Int?
+  behaviourRating       Int?
+  vehicleHandlingRating Int?
+  remarks               String?
+  createdAt             DateTime          @default(now())
+
+  ratingDisputes RatingDispute[]
+}
+
+model ExperienceCertificate {
+  id                    String            @id @default(uuid())
+  employmentHistoryId   String
+  employmentHistory     EmploymentHistory @relation(fields: [employmentHistoryId], references: [id], onDelete: Cascade)
+  driverId              String
+  driver                Driver            @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  employerId            String
+  employer              DataUser          @relation(fields: [employerId], references: [id], onDelete: Cascade)
+  certificateNumber     String            @unique
+  vehicleClass          String
+  employmentDurationMonths Int?
+  performanceSummary    String?
+  issueDate             DateTime?         @default(now()) @db.Date
+  verificationId        String            @unique
+  createdAt             DateTime          @default(now())
+}
+
+model JobRequest {
+  id                  String           @id @default(uuid())
+  employerId          String
+  employer            DataUser         @relation(fields: [employerId], references: [id], onDelete: Cascade)
+  driverId            String
+  driver              Driver           @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  jobTitle            String
+  jobDescription      String?
+  vehicleClassRequired String?
+  location            String?
+  salaryOffered       Decimal?
+  workType            Availability?    @map("work_type")
+  status              JobRequestStatus @default(pending)
+  driverResponseAt    DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+}
+
+model DriverShortlist {
+  id         String   @id @default(uuid())
+  employerId String
+  employer   DataUser @relation(fields: [employerId], references: [id], onDelete: Cascade)
+  driverId   String
+  driver     Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  @@unique([employerId, driverId])
+}
+
+model VisibilityConsentLog {
+  id        String           @id @default(uuid())
+  driverId  String
+  driver    Driver           @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  action    VisibilityAction
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime         @default(now())
+}
+
+model RatingDispute {
+  id                  String            @id @default(uuid())
+  performanceRatingId String
+  performanceRating   PerformanceRating @relation(fields: [performanceRatingId], references: [id], onDelete: Cascade)
+  driverId            String
+  driver              Driver            @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  reason              String
+  status              DisputeStatus     @default(pending)
+  resolutionNotes     String?
+  resolvedBy          String? // UUID
+  resolvedAt          DateTime?
+  createdAt           DateTime          @default(now())
+}
