@@ -1,8 +1,9 @@
 services:
-  - type: static_site
+  - type: web
     name: drive-certified-frontend
+    runtime: node
     buildCommand: npm install && npm run build
-    publishDir: dist
+    startCommand: npx serve -s dist
     envVars:
       - key: VITE_API_URL
         fromService:
