@@ -1,17 +1,18 @@
 services:
   # Frontend Static Site
-  - type: static_site
+  - type: static
     name: drive-certified-frontend
-    runtime: static
     buildCommand: npm install && npm run build
     publishDir: dist
     envVars:
       - key: VITE_API_URL
         fromService:
+          type: web
           name: drive-certified-backend
           property: url
       - key: VITE_WS_URL
         fromService:
+          type: web
           name: drive-certified-backend
           property: url
 
@@ -30,6 +31,7 @@ services:
           property: connectionString
       - key: FRONTEND_URL
         fromService:
+          type: static
           name: drive-certified-frontend
           property: url
       - key: JWT_SECRET
