@@ -1,22 +1,22 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { 
-  ArrowLeft, 
-  Loader2, 
-  User, 
-  Car, 
-  FileText, 
-  CheckCircle2, 
+import {
+  ArrowLeft,
+  Loader2,
+  User,
+  Car,
+  FileText,
+  CheckCircle2,
   Clock,
   MapPin,
   GraduationCap
 } from "lucide-react";
+import api from "@/lib/api";
 
 const ViewApplication = () => {
   const { user } = useAuth();
@@ -31,11 +31,8 @@ const ViewApplication = () => {
       if (!user) return;
 
       try {
-        const { data: driver } = await supabase
-          .from("drivers")
-          .select("id")
-          .eq("user_id", user.id)
-          .single();
+        const driverRes = await api.get(`/drivers/user/${user.id}`);
+        const driver = driverRes.data;
 
         if (!driver) {
           toast.error("Driver profile not found");
@@ -43,13 +40,8 @@ const ViewApplication = () => {
           return;
         }
 
-        const { data: app, error } = await supabase
-          .from("applications")
-          .select("*")
-          .eq("driver_id", driver.id)
-          .maybeSingle();
-
-        if (error) throw error;
+        const appRes = await api.get(`/applications/driver/${driver.id}/latest`);
+        const app = appRes.data;
 
         if (!app) {
           toast.info("No application found. Please start a new application.");
@@ -61,25 +53,26 @@ const ViewApplication = () => {
 
         // Fetch driving school and medical lab names
         if (app.driving_school_id) {
-          const { data: school } = await supabase
-            .from("partners")
-            .select("name, address, contact_number")
-            .eq("id", app.driving_school_id)
-            .single();
-          setDrivingSchool(school);
+          try {
+            const schoolRes = await api.get(`/partners/${app.driving_school_id}`);
+            setDrivingSchool(schoolRes.data);
+          } catch (e) {
+            console.error("Error fetching driving school", e);
+          }
         }
 
         if (app.medical_lab_id) {
-          const { data: lab } = await supabase
-            .from("partners")
-            .select("name, address, contact_number")
-            .eq("id", app.medical_lab_id)
-            .single();
-          setMedicalLab(lab);
+          try {
+            const labRes = await api.get(`/partners/${app.medical_lab_id}`);
+            setMedicalLab(labRes.data);
+          } catch (e) {
+            console.error("Error fetching medical lab", e);
+          }
         }
       } catch (error) {
         console.error("Error fetching application:", error);
-        toast.error("Failed to load application");
+        // Don't show error if it's just 404 for application
+        // toast.error("Failed to load application");
       } finally {
         setIsLoading(false);
       }
@@ -324,9 +317,8 @@ const ViewApplication = () => {
             <CardContent>
               <div className="grid md:grid-cols-4 gap-4">
                 <div className="text-center p-4 rounded-lg bg-muted/50">
-                  <div className={`w-10 h-10 mx-auto rounded-full flex items-center justify-center ${
-                    application.identity_verified ? "bg-green-500" : "bg-muted"
-                  }`}>
+                  <div className={`w-10 h-10 mx-auto rounded-full flex items-center justify-center ${application.identity_verified ? "bg-green-500" : "bg-muted"
+                    }`}>
                     {application.identity_verified ? (
                       <CheckCircle2 className="h-5 w-5 text-white" />
                     ) : (
@@ -339,9 +331,8 @@ const ViewApplication = () => {
                   </p>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-muted/50">
-                  <div className={`w-10 h-10 mx-auto rounded-full flex items-center justify-center ${
-                    application.education_verified ? "bg-green-500" : "bg-muted"
-                  }`}>
+                  <div className={`w-10 h-10 mx-auto rounded-full flex items-center justify-center ${application.education_verified ? "bg-green-500" : "bg-muted"
+                    }`}>
                     {application.education_verified ? (
                       <CheckCircle2 className="h-5 w-5 text-white" />
                     ) : (
@@ -354,9 +345,8 @@ const ViewApplication = () => {
                   </p>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-muted/50">
-                  <div className={`w-10 h-10 mx-auto rounded-full flex items-center justify-center ${
-                    application.driving_test_passed ? "bg-green-500" : "bg-muted"
-                  }`}>
+                  <div className={`w-10 h-10 mx-auto rounded-full flex items-center justify-center ${application.driving_test_passed ? "bg-green-500" : "bg-muted"
+                    }`}>
                     {application.driving_test_passed ? (
                       <CheckCircle2 className="h-5 w-5 text-white" />
                     ) : (
@@ -369,9 +359,8 @@ const ViewApplication = () => {
                   </p>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-muted/50">
-                  <div className={`w-10 h-10 mx-auto rounded-full flex items-center justify-center ${
-                    application.medical_test_passed ? "bg-green-500" : "bg-muted"
-                  }`}>
+                  <div className={`w-10 h-10 mx-auto rounded-full flex items-center justify-center ${application.medical_test_passed ? "bg-green-500" : "bg-muted"
+                    }`}>
                     {application.medical_test_passed ? (
                       <CheckCircle2 className="h-5 w-5 text-white" />
                     ) : (

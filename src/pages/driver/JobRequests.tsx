@@ -4,10 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Briefcase, 
-  Building2, 
-  MapPin, 
+import {
+  Briefcase,
+  Building2,
+  MapPin,
   DollarSign,
   Clock,
   Check,
@@ -18,10 +18,10 @@ import {
   ArrowUpRight
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
+import api from "@/lib/api";
 
 interface JobRequest {
   id: string;
@@ -53,72 +53,67 @@ const JobRequests = () => {
 
   const fetchData = async () => {
     if (!user) return;
-    
-    const { data: driver } = await supabase
-      .from("drivers")
-      .select("id, first_name, last_name")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    
-    if (driver) {
-      setDriverData(driver);
 
-      const { data: jobRequests } = await supabase
-        .from("job_requests")
-        .select(`
-          id, job_title, job_description, vehicle_class_required, 
-          location, salary_offered, work_type, status, created_at,
-          employer:data_users!job_requests_employer_id_fkey(company_name, industry_type)
-        `)
-        .eq("driver_id", driver.id)
-        .order("created_at", { ascending: false });
+    try {
+      const driverRes = await api.get(`/drivers/user/${user.id}`);
+      const driver = driverRes.data;
 
-      // Map requests with type (sent = applied by driver, received = sent by employer)
-      const mappedRequests = (jobRequests || []).map((r: any) => ({
-        ...r,
-        type: r.status === "applied" ? "sent" : "received"
-      }));
+      if (driver) {
+        setDriverData(driver);
 
-      setRequests(mappedRequests as JobRequest[]);
+        try {
+          const jobRequestsRes = await api.get(`/drivers/${driver.id}/job-requests`);
+          const jobRequests = jobRequestsRes.data;
+
+          // Map requests with type (sent = applied by driver, received = sent by employer)
+          const mappedRequests = (jobRequests || []).map((r: { status: string } & Record<string, unknown>) => ({
+            ...r,
+            type: r.status === "applied" ? "sent" : "received"
+          }));
+
+          setRequests(mappedRequests as JobRequest[]);
+        } catch (e) {
+          console.error("Error fetching job requests", e);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching driver data:", error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleResponse = async (requestId: string, accept: boolean) => {
     try {
       const newStatus = accept ? "accepted" : "rejected";
-      
-      await supabase
-        .from("job_requests")
-        .update({ 
-          status: newStatus,
-          driver_response_at: new Date().toISOString()
-        })
-        .eq("id", requestId);
+
+      await api.patch(`/job-requests/${requestId}`, {
+        status: newStatus,
+        driver_response_at: new Date().toISOString()
+      });
 
       toast.success(accept ? "Job request accepted!" : "Job request declined");
       fetchData();
     } catch (error) {
+      console.error("Error updating request:", error);
       toast.error("Failed to update request");
     }
   };
 
   const withdrawApplication = async (requestId: string) => {
     try {
-      await supabase
-        .from("job_requests")
-        .delete()
-        .eq("id", requestId);
+      await api.delete(`/job-requests/${requestId}`);
 
       toast.success("Application withdrawn");
       fetchData();
     } catch (error) {
+      console.error("Error withdrawing application:", error);
       toast.error("Failed to withdraw application");
     }
   };
 
-  const userName = driverData 
-    ? `${driverData.first_name} ${driverData.last_name}` 
+  const userName = driverData
+    ? `${driverData.first_name} ${driverData.last_name}`
     : "Driver";
 
   const receivedRequests = requests.filter(r => r.type === "received");
@@ -234,11 +229,11 @@ const JobRequests = () => {
                   <Inbox className="w-12 h-12 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No Job Requests</h3>
                   <p className="text-muted-foreground text-center">
-                    {activeTab === "received" 
-                      ? "You haven't received any job offers yet" 
+                    {activeTab === "received"
+                      ? "You haven't received any job offers yet"
                       : activeTab === "sent"
-                      ? "You haven't applied to any jobs yet"
-                      : "No requests in this category"}
+                        ? "You haven't applied to any jobs yet"
+                        : "No requests in this category"}
                   </p>
                 </CardContent>
               </Card>
@@ -280,7 +275,7 @@ const JobRequests = () => {
                       {request.job_description && (
                         <p className="text-sm text-muted-foreground mb-4">{request.job_description}</p>
                       )}
-                      
+
                       <div className="flex flex-wrap gap-4 text-sm mb-4">
                         {request.vehicle_class_required && (
                           <div className="flex items-center gap-1.5">
@@ -317,15 +312,15 @@ const JobRequests = () => {
 
                         {request.type === "received" && request.status === "pending" && (
                           <div className="flex gap-2">
-                            <Button 
-                              variant="outline" 
+                            <Button
+                              variant="outline"
                               size="sm"
                               onClick={() => handleResponse(request.id, false)}
                             >
                               <X className="w-4 h-4 mr-1" />
                               Decline
                             </Button>
-                            <Button 
+                            <Button
                               size="sm"
                               onClick={() => handleResponse(request.id, true)}
                             >
@@ -336,8 +331,8 @@ const JobRequests = () => {
                         )}
 
                         {request.type === "sent" && request.status === "applied" && (
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="sm"
                             onClick={() => withdrawApplication(request.id)}
                           >

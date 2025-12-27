@@ -1,0 +1,107 @@
+name: drive-certified
+region: blr1  # Bangalore, India - change to your preferred region
+
+# Services
+services:
+  # Backend API Service
+  - name: backend
+    source_dir: /backend
+    github:
+      repo: abhijitho2011/drive-certified  # Update with your GitHub username/repo
+      branch: main
+      deploy_on_push: true
+    
+    # Build configuration
+    build_command: npm install && npx prisma generate && npm run build
+    
+    # Runtime configuration
+    run_command: npx prisma migrate deploy && npm run start:prod
+    
+    # HTTP configuration
+    http_port: 3001
+    health_check:
+      http_path: /api/health
+      initial_delay_seconds: 30
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
+    
+    # Resource allocation
+    instance_count: 1
+    instance_size_slug: basic-xxs  # $12/month - 512MB RAM, 1 vCPU
+    
+    # Routing
+    routes:
+      - path: /api
+    
+    # Environment variables
+    envs:
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${db.DATABASE_URL}
+      
+      - key: JWT_SECRET
+        scope: RUN_TIME
+        type: SECRET
+        value: EV[1:your-jwt-secret:abcdef123456]  # Replace with actual secret
+      
+      - key: JWT_EXPIRATION
+        scope: RUN_TIME
+        value: "7d"
+      
+      - key: NODE_ENV
+        scope: RUN_TIME
+        value: production
+      
+      - key: PORT
+        scope: RUN_TIME
+        value: "3001"
+      
+      - key: FRONTEND_URL
+        scope: RUN_TIME
+        value: ${frontend.PUBLIC_URL}
+
+  # Frontend Static Site
+  - name: frontend
+    type: static_site
+    source_dir: /
+    github:
+      repo: abhijitho2011/drive-certified  # Update with your GitHub username/repo
+      branch: main
+      deploy_on_push: true
+    
+    # Build configuration
+    build_command: npm install && npm run build
+    output_dir: dist
+    
+    # Routing
+    routes:
+      - path: /
+    
+    # Environment variables (build-time)
+    envs:
+      - key: VITE_API_URL
+        scope: BUILD_TIME
+        value: ${backend.PUBLIC_URL}/api
+      
+      - key: VITE_WS_URL
+        scope: BUILD_TIME
+        value: wss://${backend.PUBLIC_URL}
+    
+    # Static site configuration
+    catchall_document: index.html  # For SPA routing
+    error_document: index.html
+
+# Database
+databases:
+  - name: db
+    engine: PG
+    version: "15"
+    production: true
+    cluster_name: drive-certified-db  # Must match existing database cluster name
+
+# Optional: Add alerts
+alerts:
+  - rule: DEPLOYMENT_FAILED
+  - rule: DOMAIN_FAILED

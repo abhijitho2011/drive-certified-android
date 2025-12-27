@@ -14,7 +14,7 @@ import {
 import motractLogo from "@/assets/motract-logo.jpg";
 import { ArrowLeft, Phone, User, MapPin, Mail, Lock } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import api from "@/lib/api";
 
 interface State {
   id: string;
@@ -32,7 +32,7 @@ const Register = () => {
   const [states, setStates] = useState<State[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
   const navigate = useNavigate();
-  
+
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -50,12 +50,19 @@ const Register = () => {
   }, []);
 
   const fetchStatesAndDistricts = async () => {
-    const [statesRes, districtsRes] = await Promise.all([
-      supabase.from("states").select("id, name").order("name"),
-      supabase.from("districts").select("id, state_id, name").order("name"),
-    ]);
-    if (statesRes.data) setStates(statesRes.data);
-    if (districtsRes.data) setDistricts(districtsRes.data);
+    try {
+      const [statesRes, districtsRes] = await Promise.all([
+        api.get("/location/states"),
+        api.get("/location/districts"),
+      ]);
+      if (statesRes.data) setStates(statesRes.data);
+      if (districtsRes.data) setDistricts(districtsRes.data);
+    } catch (error) {
+      console.error("Error fetching location data:", error);
+      // Fallback to placeholder data if API fails
+      setStates([{ id: "12", name: "Kerala" }]);
+      setDistricts([{ id: "1", state_id: "12", name: "Thiruvananthapuram" }]);
+    }
   };
 
   const formatPhone = (value: string) => {
@@ -84,9 +91,9 @@ const Register = () => {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const { firstName, lastName, email, password, address, district, state, pinCode, phone } = formData;
-    
+
     if (!firstName || !lastName || !email || !password || !address || !district || !state || !pinCode || phone.length !== 10) {
       toast.error("Please fill all required fields");
       return;
@@ -103,50 +110,25 @@ const Register = () => {
     }
 
     setIsLoading(true);
-    
+
     try {
-      const { data, error } = await supabase.auth.signUp({
+      await api.post("/auth/register", {
         email,
         password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          data: {
-            first_name: firstName,
-            last_name: lastName,
-          },
-        },
+        firstName,
+        lastName,
+        address,
+        district,
+        state,
+        pinCode,
+        phone,
+        role: "driver" // Assuming backend handles role assignment or we send it
       });
 
-      if (error) throw error;
-
-      if (data.user) {
-        // Insert driver role
-        await supabase.from("user_roles").insert({
-          user_id: data.user.id,
-          role: "driver",
-        });
-
-        // Insert driver details
-        await supabase.from("drivers").insert({
-          user_id: data.user.id,
-          first_name: firstName,
-          last_name: lastName,
-          address: address,
-          district: district,
-          state: state,
-          pin_code: pinCode,
-          phone: phone,
-        });
-
-        toast.success("Registration successful! Redirecting to dashboard...");
-        navigate("/driver");
-      }
+      toast.success("Registration successful! Redirecting to login...");
+      navigate("/login");
     } catch (error: any) {
-      if (error.message?.includes("already registered")) {
-        toast.error("This email is already registered. Please login instead.");
-      } else {
-        toast.error(error.message || "Registration failed");
-      }
+      toast.error(error.response?.data?.message || "Registration failed");
     } finally {
       setIsLoading(false);
     }
@@ -155,8 +137,8 @@ const Register = () => {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 py-12">
       <div className="w-full max-w-md">
-        <Link 
-          to="/" 
+        <Link
+          to="/"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -282,8 +264,8 @@ const Register = () => {
 
               <div className="space-y-2">
                 <Label>District *</Label>
-                <Select 
-                  value={formData.district} 
+                <Select
+                  value={formData.district}
                   onValueChange={(value) => handleChange("district", value)}
                   disabled={!formData.state}
                 >

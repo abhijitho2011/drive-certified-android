@@ -1,60 +1,54 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Users, FileText, Clock, CheckCircle2, Stethoscope } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import api from "@/lib/api";
 import MedicalTestSheet from "@/components/medical-lab/MedicalTestSheet";
+
+interface Application {
+  id: string;
+  driver_id: string;
+  drivers?: {
+    first_name: string;
+    last_name: string;
+  } | null;
+  medical_test_passed: boolean;
+  medical_test_slot?: string;
+  status: string;
+}
 
 const MedicalLabDashboard = () => {
   const { user } = useAuth();
   const [partnerData, setPartnerData] = useState<{ id: string; name: string } | null>(null);
-  const [applications, setApplications] = useState<any[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedApp, setSelectedApp] = useState<any>(null);
+  const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [isTestOpen, setIsTestOpen] = useState(false);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!user) return;
-    
-    const { data: partner } = await supabase
-      .from("partners")
-      .select("id, name")
-      .eq("user_id", user.id)
-      .eq("partner_type", "medical_lab")
-      .maybeSingle();
-    
-    if (partner) {
-      setPartnerData(partner);
-      // Use role-specific view that only exposes medical-related data (no driving/license data)
-      const { data: apps } = await supabase
-        .from("applications_medical_lab")
-        .select(`*`)
-        .eq("medical_lab_id", partner.id);
-      
-      // Fetch driver names separately (only for assigned drivers)
-      if (apps && apps.length > 0) {
-        const driverIds = apps.map(a => a.driver_id);
-        const { data: drivers } = await supabase
-          .from("drivers")
-          .select("id, first_name, last_name")
-          .in("id", driverIds);
-        
-        const appsWithDrivers = apps.map(app => ({
-          ...app,
-          drivers: drivers?.find(d => d.id === app.driver_id) || null
-        }));
-        setApplications(appsWithDrivers);
-      } else {
-        setApplications([]);
-      }
-    }
-    setLoading(false);
-  };
 
-  useEffect(() => { fetchData(); }, [user]);
+    try {
+      const partnerRes = await api.get(`/partners/user/${user.id}`);
+      const partner = partnerRes.data;
+
+      if (partner && partner.partner_type === 'medical_lab') {
+        setPartnerData(partner);
+
+        const appsRes = await api.get(`/applications/medical-lab/${partner.id}`);
+        setApplications(appsRes.data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching medical lab data:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const pendingTests = applications.filter(app => !app.medical_test_passed);
   const completedTests = applications.filter(app => app.medical_test_passed);

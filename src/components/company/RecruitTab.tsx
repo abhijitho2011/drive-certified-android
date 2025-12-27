@@ -51,7 +51,7 @@ import {
   EyeOff,
 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import api from "@/lib/api";
 
 interface RecruitTabProps {
   employerId: string;
@@ -129,7 +129,7 @@ const AVAILABILITY_OPTIONS = ["full_time", "part_time", "contract"];
 
 const RecruitTab = ({ employerId, hasRecruitmentAccess }: RecruitTabProps) => {
   const [activeTab, setActiveTab] = useState("search");
-  
+
   // Search state
   const [drivers, setDrivers] = useState<DiscoverableDriver[]>([]);
   const [loading, setLoading] = useState(false);
@@ -185,99 +185,9 @@ const RecruitTab = ({ employerId, hasRecruitmentAccess }: RecruitTabProps) => {
 
     setLoading(true);
     try {
-      let query = supabase
-        .from("driver_employment_status")
-        .select(`
-          driver_id,
-          availability,
-          preferred_work_types,
-          preferred_locations,
-          expected_salary_min,
-          expected_salary_max,
-          drivers!inner(
-            id,
-            first_name,
-            last_name,
-            district,
-            state
-          )
-        `)
-        .eq("is_visible_to_employers", true);
-
-      if (filters.availability) {
-        query = query.eq("availability", filters.availability);
-      }
-
-      const { data: employmentData, error } = await query;
-      if (error) throw error;
-
-      const driverIds = employmentData?.map((d: any) => d.driver_id) || [];
-      
-      if (driverIds.length === 0) {
-        setDrivers([]);
-        return;
-      }
-
-      const { data: certificates } = await supabase
-        .from("applications")
-        .select("driver_id, certification_vehicle_class, skill_grade, certificate_expiry_date, vehicle_classes")
-        .in("driver_id", driverIds)
-        .eq("status", "approved")
-        .eq("admin_approved", true)
-        .not("certificate_number", "is", null);
-
-      const { data: ratings } = await supabase
-        .from("performance_ratings")
-        .select("driver_id, overall_rating")
-        .in("driver_id", driverIds);
-
-      const driversMap = new Map<string, DiscoverableDriver>();
-
-      employmentData?.forEach((emp: any) => {
-        const driver = emp.drivers;
-        const driverCerts = certificates?.filter((c: any) => c.driver_id === emp.driver_id) || [];
-        const driverRatings = ratings?.filter((r: any) => r.driver_id === emp.driver_id) || [];
-        
-        const avgRating = driverRatings.length > 0
-          ? driverRatings.reduce((sum: number, r: any) => sum + (r.overall_rating || 0), 0) / driverRatings.length
-          : null;
-
-        const vehicleClasses = [...new Set(driverCerts.flatMap((c: any) => c.vehicle_classes || []))];
-        const skillGrades = driverCerts.map((c: any) => c.skill_grade).filter(Boolean);
-        const latestExpiry = driverCerts
-          .map((c: any) => c.certificate_expiry_date)
-          .filter(Boolean)
-          .sort()
-          .reverse()[0];
-
-        if (filters.vehicleClass && !vehicleClasses.includes(filters.vehicleClass)) return;
-        if (filters.skillGrade && !skillGrades.includes(filters.skillGrade)) return;
-        if (filters.location && 
-            !driver.district.toLowerCase().includes(filters.location.toLowerCase()) &&
-            !driver.state.toLowerCase().includes(filters.location.toLowerCase()) &&
-            !(emp.preferred_locations || []).some((l: string) => l.toLowerCase().includes(filters.location.toLowerCase()))
-        ) return;
-        if (filters.workType && !(emp.preferred_work_types || []).includes(filters.workType)) return;
-
-        driversMap.set(emp.driver_id, {
-          driver_id: emp.driver_id,
-          masked_name: `${driver.first_name.charAt(0)}***${driver.last_name.charAt(0)}`,
-          skill_grade: skillGrades[0] || null,
-          vehicle_classes: vehicleClasses,
-          certificate_expiry: latestExpiry,
-          availability: emp.availability,
-          preferred_work_types: emp.preferred_work_types || [],
-          preferred_locations: emp.preferred_locations || [],
-          expected_salary_min: emp.expected_salary_min,
-          expected_salary_max: emp.expected_salary_max,
-          average_rating: avgRating,
-          district: driver.district,
-          state: driver.state,
-        });
-      });
-
-      setDrivers(Array.from(driversMap.values()));
-    } catch (error: any) {
+      const response = await api.post('/drivers/search', filters);
+      setDrivers(response.data);
+    } catch (error) {
       console.error("Search error:", error);
       toast.error("Failed to search drivers");
     } finally {
@@ -286,17 +196,12 @@ const RecruitTab = ({ employerId, hasRecruitmentAccess }: RecruitTabProps) => {
   };
 
   // Fetch job postings
+  // Fetch job postings
   const fetchJobPostings = async () => {
     try {
-      const { data, error } = await supabase
-        .from("job_postings")
-        .select("*")
-        .eq("employer_id", employerId)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setJobPostings(data || []);
-    } catch (error: any) {
+      const response = await api.get(`/job-postings?employer_id=${employerId}`);
+      setJobPostings(response.data || []);
+    } catch (error) {
       console.error("Error fetching job postings:", error);
     }
   };
@@ -304,64 +209,9 @@ const RecruitTab = ({ employerId, hasRecruitmentAccess }: RecruitTabProps) => {
   // Fetch shortlist
   const fetchShortlist = async () => {
     try {
-      const { data, error } = await supabase
-        .from("driver_shortlist")
-        .select(`
-          id,
-          driver_id,
-          notes,
-          created_at,
-          drivers!inner(
-            first_name,
-            last_name,
-            district,
-            state
-          )
-        `)
-        .eq("employer_id", employerId)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
-      const driverIds = data?.map((d: any) => d.driver_id) || [];
-      
-      const [certsRes, ratingsRes] = await Promise.all([
-        supabase
-          .from("applications")
-          .select("driver_id, skill_grade, vehicle_classes")
-          .in("driver_id", driverIds)
-          .eq("status", "approved")
-          .eq("admin_approved", true),
-        supabase
-          .from("performance_ratings")
-          .select("driver_id, overall_rating")
-          .in("driver_id", driverIds),
-      ]);
-
-      const shortlistWithDetails = data?.map((item: any) => {
-        const certs = certsRes.data?.filter((c: any) => c.driver_id === item.driver_id) || [];
-        const ratings = ratingsRes.data?.filter((r: any) => r.driver_id === item.driver_id) || [];
-        
-        const vehicleClasses = [...new Set(certs.flatMap((c: any) => c.vehicle_classes || []))];
-        const skillGrade = certs.find((c: any) => c.skill_grade)?.skill_grade || null;
-        const avgRating = ratings.length > 0
-          ? ratings.reduce((sum: number, r: any) => sum + (r.overall_rating || 0), 0) / ratings.length
-          : null;
-
-        return {
-          id: item.id,
-          driver_id: item.driver_id,
-          notes: item.notes,
-          created_at: item.created_at,
-          driver: item.drivers,
-          vehicle_classes: vehicleClasses,
-          skill_grade: skillGrade,
-          average_rating: avgRating,
-        };
-      }) || [];
-
-      setShortlist(shortlistWithDetails);
-    } catch (error: any) {
+      const response = await api.get(`/driver-shortlist?employer_id=${employerId}`);
+      setShortlist(response.data || []);
+    } catch (error) {
       console.error("Error fetching shortlist:", error);
     }
   };
@@ -369,25 +219,9 @@ const RecruitTab = ({ employerId, hasRecruitmentAccess }: RecruitTabProps) => {
   // Fetch requests
   const fetchRequests = async () => {
     try {
-      const { data, error } = await supabase
-        .from("job_requests")
-        .select(`
-          *,
-          drivers!inner(
-            first_name,
-            last_name
-          )
-        `)
-        .eq("employer_id", employerId)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
-      setRequests(data?.map((r: any) => ({
-        ...r,
-        driver: r.drivers
-      })) || []);
-    } catch (error: any) {
+      const response = await api.get(`/job-requests?employer_id=${employerId}`);
+      setRequests(response.data || []);
+    } catch (error) {
       console.error("Error fetching requests:", error);
     }
   };
@@ -404,25 +238,18 @@ const RecruitTab = ({ employerId, hasRecruitmentAccess }: RecruitTabProps) => {
   // Actions
   const handleShortlist = async (driver: DiscoverableDriver) => {
     try {
-      const { error } = await supabase
-        .from("driver_shortlist")
-        .insert({
-          employer_id: employerId,
-          driver_id: driver.driver_id,
-        });
-
-      if (error) {
-        if (error.code === "23505") {
-          toast.info("Driver already in shortlist");
-        } else {
-          throw error;
-        }
-      } else {
-        toast.success("Driver added to shortlist");
-        fetchShortlist();
-      }
+      await api.post("/driver-shortlist", {
+        employer_id: employerId,
+        driver_id: driver.driver_id,
+      });
+      toast.success("Driver added to shortlist");
+      fetchShortlist();
     } catch (error: any) {
-      toast.error(error.message || "Failed to shortlist driver");
+      if (error.response?.status === 409) {
+        toast.info("Driver already in shortlist");
+      } else {
+        toast.error("Failed to shortlist driver");
+      }
     }
   };
 
@@ -447,26 +274,23 @@ const RecruitTab = ({ employerId, hasRecruitmentAccess }: RecruitTabProps) => {
 
     setSubmitting(true);
     try {
-      const { error } = await supabase
-        .from("job_requests")
-        .insert({
-          employer_id: employerId,
-          driver_id: selectedDriver.driver_id,
-          job_title: jobForm.jobTitle,
-          job_description: jobForm.jobDescription || null,
-          vehicle_class_required: jobForm.vehicleClassRequired || null,
-          location: jobForm.location || null,
-          salary_offered: jobForm.salaryOffered ? parseFloat(jobForm.salaryOffered) : null,
-          work_type: jobForm.workType || null,
-        });
-
-      if (error) throw error;
+      await api.post("/job-requests", {
+        employer_id: employerId,
+        driver_id: selectedDriver.driver_id,
+        job_title: jobForm.jobTitle,
+        job_description: jobForm.jobDescription || null,
+        vehicle_class_required: jobForm.vehicleClassRequired || null,
+        location: jobForm.location || null,
+        salary_offered: jobForm.salaryOffered ? parseFloat(jobForm.salaryOffered) : null,
+        work_type: jobForm.workType || null,
+        status: "pending"
+      });
 
       toast.success("Job request sent to driver");
       setIsJobDialogOpen(false);
       fetchRequests();
     } catch (error: any) {
-      toast.error(error.message || "Failed to send job request");
+      toast.error(error.response?.data?.message || "Failed to send job request");
     } finally {
       setSubmitting(false);
     }
@@ -480,22 +304,18 @@ const RecruitTab = ({ employerId, hasRecruitmentAccess }: RecruitTabProps) => {
 
     setSubmitting(true);
     try {
-      const { error } = await supabase
-        .from("job_postings")
-        .insert({
-          employer_id: employerId,
-          title: postForm.title,
-          description: postForm.description || null,
-          vehicle_class_required: postForm.vehicleClasses.length > 0 ? postForm.vehicleClasses : null,
-          skill_grade_required: postForm.skillGrades.length > 0 ? postForm.skillGrades : null,
-          availability_required: postForm.availability || null,
-          work_type: postForm.workType || null,
-          location: postForm.location || null,
-          salary_min: postForm.salaryMin ? parseFloat(postForm.salaryMin) : null,
-          salary_max: postForm.salaryMax ? parseFloat(postForm.salaryMax) : null,
-        });
-
-      if (error) throw error;
+      await api.post("/job-postings", {
+        employer_id: employerId,
+        title: postForm.title,
+        description: postForm.description || null,
+        vehicle_class_required: postForm.vehicleClasses.length > 0 ? postForm.vehicleClasses : null,
+        skill_grade_required: postForm.skillGrades.length > 0 ? postForm.skillGrades : null,
+        availability_required: postForm.availability || null,
+        work_type: postForm.workType || null,
+        location: postForm.location || null,
+        salary_min: postForm.salaryMin ? parseFloat(postForm.salaryMin) : null,
+        salary_max: postForm.salaryMax ? parseFloat(postForm.salaryMax) : null,
+      });
 
       toast.success("Job opening posted successfully");
       setIsPostDialogOpen(false);
@@ -512,7 +332,7 @@ const RecruitTab = ({ employerId, hasRecruitmentAccess }: RecruitTabProps) => {
       });
       fetchJobPostings();
     } catch (error: any) {
-      toast.error(error.message || "Failed to post job");
+      toast.error(error.response?.data?.message || "Failed to post job");
     } finally {
       setSubmitting(false);
     }
@@ -520,90 +340,65 @@ const RecruitTab = ({ employerId, hasRecruitmentAccess }: RecruitTabProps) => {
 
   const toggleJobActive = async (posting: JobPosting) => {
     try {
-      const { error } = await supabase
-        .from("job_postings")
-        .update({ is_active: !posting.is_active })
-        .eq("id", posting.id);
-
-      if (error) throw error;
+      await api.patch(`/job-postings/${posting.id}`, {
+        is_active: !posting.is_active
+      });
       toast.success(posting.is_active ? "Job posting deactivated" : "Job posting activated");
       fetchJobPostings();
-    } catch (error: any) {
+    } catch (error) {
       toast.error("Failed to update job posting");
     }
   };
 
   const deleteJobPosting = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from("job_postings")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
+      await api.delete(`/job-postings/${id}`);
       toast.success("Job posting deleted");
       fetchJobPostings();
-    } catch (error: any) {
+    } catch (error) {
       toast.error("Failed to delete job posting");
     }
   };
 
   const removeFromShortlist = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from("driver_shortlist")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
+      await api.delete(`/driver-shortlist/${id}`);
       toast.success("Driver removed from shortlist");
       fetchShortlist();
     } catch (error: any) {
-      toast.error(error.message || "Failed to remove driver");
+      toast.error(error.response?.data?.message || "Failed to remove driver");
     }
   };
 
   const withdrawRequest = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from("job_requests")
-        .update({ status: "withdrawn" })
-        .eq("id", id);
-
-      if (error) throw error;
+      await api.patch(`/job-requests/${id}`, { status: "withdrawn" });
       toast.success("Job request withdrawn");
       fetchRequests();
     } catch (error: any) {
-      toast.error(error.message || "Failed to withdraw request");
+      toast.error(error.response?.data?.message || "Failed to withdraw request");
     }
   };
 
   const markAsHired = async (request: JobRequest) => {
     try {
-      const { error: reqError } = await supabase
-        .from("job_requests")
-        .update({ status: "hired" })
-        .eq("id", request.id);
+      // Update request status
+      await api.patch(`/job-requests/${request.id}`, { status: "hired" });
 
-      if (reqError) throw reqError;
-
-      const { error: empError } = await supabase
-        .from("employment_history")
-        .insert({
-          driver_id: request.driver_id,
-          employer_id: employerId,
-          position: request.job_title,
-          start_date: new Date().toISOString().split("T")[0],
-          vehicle_class: request.vehicle_class_required,
-          status: "active",
-        });
-
-      if (empError) throw empError;
+      // Create employment history
+      await api.post("/employment-history", {
+        driver_id: request.driver_id,
+        employer_id: employerId,
+        position: request.job_title,
+        start_date: new Date().toISOString().split("T")[0],
+        vehicle_class: request.vehicle_class_required,
+        status: "active",
+      });
 
       toast.success("Driver hired successfully!");
       fetchRequests();
     } catch (error: any) {
-      toast.error(error.message || "Failed to complete hiring");
+      toast.error(error.response?.data?.message || "Failed to complete hiring");
     }
   };
 

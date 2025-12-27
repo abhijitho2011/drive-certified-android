@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,15 +18,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  Download, 
+import {
+  Download,
   Search,
   FileText,
-  Calendar,
-  Filter
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import api from "@/lib/api";
 import * as XLSX from "xlsx";
+import { toast } from "sonner";
 
 interface AuditLog {
   id: string;
@@ -53,29 +52,27 @@ const AuditLogs = ({ dataUserId }: AuditLogsProps) => {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  useEffect(() => {
-    fetchLogs();
+  const fetchLogs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await api.get(`/verification-logs/company/${dataUserId}`);
+      setLogs(response.data || []);
+    } catch (error) {
+      console.error("Error fetching logs:", error);
+      toast.error("Failed to fetch audit logs");
+    } finally {
+      setLoading(false);
+    }
   }, [dataUserId]);
 
-  const fetchLogs = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("verification_logs" as any)
-      .select("*")
-      .eq("data_user_id", dataUserId)
-      .order("created_at", { ascending: false })
-      .limit(500);
-
-    if (data) {
-      setLogs(data as unknown as AuditLog[]);
-    }
-    setLoading(false);
-  };
+  useEffect(() => {
+    fetchLogs();
+  }, [fetchLogs]);
 
   const filteredLogs = logs.filter(log => {
     if (searchQuery && !log.search_query.toLowerCase().includes(searchQuery.toLowerCase()) &&
-        !log.certificate_number?.toLowerCase().includes(searchQuery.toLowerCase()) &&
-        !log.driver_name?.toLowerCase().includes(searchQuery.toLowerCase())) {
+      !log.certificate_number?.toLowerCase().includes(searchQuery.toLowerCase()) &&
+      !log.driver_name?.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false;
     }
     if (filterStatus !== "all" && log.result_status !== filterStatus) {
@@ -128,7 +125,7 @@ const AuditLogs = ({ dataUserId }: AuditLogsProps) => {
 
   const stats = {
     total: filteredLogs.length,
-    today: filteredLogs.filter(l => 
+    today: filteredLogs.filter(l =>
       new Date(l.created_at).toDateString() === new Date().toDateString()
     ).length,
     thisWeek: filteredLogs.filter(l => {
@@ -288,8 +285,8 @@ const AuditLogs = ({ dataUserId }: AuditLogsProps) => {
                         </Badge>
                       </TableCell>
                       <TableCell className="font-mono text-sm">
-                        {log.search_query.length > 20 
-                          ? log.search_query.substring(0, 20) + "..." 
+                        {log.search_query.length > 20
+                          ? log.search_query.substring(0, 20) + "..."
                           : log.search_query}
                       </TableCell>
                       <TableCell className="font-mono">

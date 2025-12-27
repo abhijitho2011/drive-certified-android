@@ -30,7 +30,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Search, Star, MapPin, BookmarkPlus, Send, Filter, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import api from "@/lib/api";
 
 interface DriverSearchProps {
   employerId: string;
@@ -68,7 +68,7 @@ const DriverSearch = ({ employerId, hasRecruitmentAccess }: DriverSearchProps) =
     workType: "",
   });
   const [showFilters, setShowFilters] = useState(false);
-  
+
   // Job request dialog
   const [isJobDialogOpen, setIsJobDialogOpen] = useState(false);
   const [selectedDriver, setSelectedDriver] = useState<DiscoverableDriver | null>(null);
@@ -82,113 +82,12 @@ const DriverSearch = ({ employerId, hasRecruitmentAccess }: DriverSearchProps) =
   });
   const [submitting, setSubmitting] = useState(false);
 
-  const searchDrivers = async () => {
-    if (!hasRecruitmentAccess) {
-      toast.error("You don't have recruitment access. Please contact admin.");
-      return;
-    }
-
+  const performSearch = async (searchFilters: typeof filters) => {
     setLoading(true);
     try {
-      // Query visible drivers with their employment status and certificates
-      let query = supabase
-        .from("driver_employment_status")
-        .select(`
-          driver_id,
-          availability,
-          preferred_work_types,
-          preferred_locations,
-          expected_salary_min,
-          expected_salary_max,
-          drivers!inner(
-            id,
-            first_name,
-            last_name,
-            district,
-            state
-          )
-        `)
-        .eq("is_visible_to_employers", true);
-
-      if (filters.availability) {
-        query = query.eq("availability", filters.availability);
-      }
-
-      const { data: employmentData, error } = await query;
-
-      if (error) throw error;
-
-      // Get certificates for these drivers
-      const driverIds = employmentData?.map((d: any) => d.driver_id) || [];
-      
-      if (driverIds.length === 0) {
-        setDrivers([]);
-        return;
-      }
-
-      const { data: certificates } = await supabase
-        .from("applications")
-        .select("driver_id, certification_vehicle_class, skill_grade, certificate_expiry_date, vehicle_classes")
-        .in("driver_id", driverIds)
-        .eq("status", "approved")
-        .eq("admin_approved", true)
-        .not("certificate_number", "is", null);
-
-      // Get average ratings
-      const { data: ratings } = await supabase
-        .from("performance_ratings")
-        .select("driver_id, overall_rating")
-        .in("driver_id", driverIds);
-
-      // Combine data
-      const driversMap = new Map<string, DiscoverableDriver>();
-
-      employmentData?.forEach((emp: any) => {
-        const driver = emp.drivers;
-        const driverCerts = certificates?.filter((c: any) => c.driver_id === emp.driver_id) || [];
-        const driverRatings = ratings?.filter((r: any) => r.driver_id === emp.driver_id) || [];
-        
-        const avgRating = driverRatings.length > 0
-          ? driverRatings.reduce((sum: number, r: any) => sum + (r.overall_rating || 0), 0) / driverRatings.length
-          : null;
-
-        const vehicleClasses = [...new Set(driverCerts.flatMap((c: any) => c.vehicle_classes || []))];
-        const skillGrades = driverCerts.map((c: any) => c.skill_grade).filter(Boolean);
-        const latestExpiry = driverCerts
-          .map((c: any) => c.certificate_expiry_date)
-          .filter(Boolean)
-          .sort()
-          .reverse()[0];
-
-        // Apply filters
-        if (filters.vehicleClass && !vehicleClasses.includes(filters.vehicleClass)) return;
-        if (filters.skillGrade && !skillGrades.includes(filters.skillGrade)) return;
-        if (filters.location && 
-            !driver.district.toLowerCase().includes(filters.location.toLowerCase()) &&
-            !driver.state.toLowerCase().includes(filters.location.toLowerCase()) &&
-            !(emp.preferred_locations || []).some((l: string) => l.toLowerCase().includes(filters.location.toLowerCase()))
-        ) return;
-        if (filters.workType && !(emp.preferred_work_types || []).includes(filters.workType)) return;
-
-        driversMap.set(emp.driver_id, {
-          driver_id: emp.driver_id,
-          masked_name: `${driver.first_name.charAt(0)}***${driver.last_name.charAt(0)}`,
-          skill_grade: skillGrades[0] || null,
-          vehicle_classes: vehicleClasses,
-          certificate_expiry: latestExpiry,
-          availability: emp.availability,
-          preferred_work_types: emp.preferred_work_types || [],
-          preferred_locations: emp.preferred_locations || [],
-          expected_salary_min: emp.expected_salary_min,
-          expected_salary_max: emp.expected_salary_max,
-          average_rating: avgRating,
-          district: driver.district,
-          state: driver.state,
-        });
-      });
-
-      setDrivers(Array.from(driversMap.values()));
-    } catch (error: any) {
+      const response = await api.post('/drivers/search', searchFilters);
+      setDrivers(response.data);
+    } catch (error) {
       console.error("Search error:", error);
       toast.error("Failed to search drivers");
     } finally {
@@ -196,26 +95,35 @@ const DriverSearch = ({ employerId, hasRecruitmentAccess }: DriverSearchProps) =
     }
   };
 
+  const searchDrivers = () => {
+    if (!hasRecruitmentAccess) {
+      toast.error("You don't have recruitment access. Please contact admin.");
+      return;
+    }
+    performSearch(filters);
+  };
+
+  useEffect(() => {
+    if (hasRecruitmentAccess) {
+      performSearch(filters);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasRecruitmentAccess]);
+
   const handleShortlist = async (driver: DiscoverableDriver) => {
     try {
-      const { error } = await supabase
-        .from("driver_shortlist")
-        .insert({
-          employer_id: employerId,
-          driver_id: driver.driver_id,
-        });
-
-      if (error) {
-        if (error.code === "23505") {
-          toast.info("Driver already in shortlist");
-        } else {
-          throw error;
-        }
-      } else {
-        toast.success("Driver added to shortlist");
-      }
+      await api.post("/driver-shortlist", {
+        employer_id: employerId,
+        driver_id: driver.driver_id,
+      });
+      toast.success("Driver added to shortlist");
     } catch (error: any) {
-      toast.error(error.message || "Failed to shortlist driver");
+      // Check for duplicate error if possible, or generic error
+      if (error.response?.status === 409) {
+        toast.info("Driver already in shortlist");
+      } else {
+        toast.error("Failed to shortlist driver");
+      }
     }
   };
 
@@ -240,35 +148,28 @@ const DriverSearch = ({ employerId, hasRecruitmentAccess }: DriverSearchProps) =
 
     setSubmitting(true);
     try {
-      const { error } = await supabase
-        .from("job_requests")
-        .insert({
-          employer_id: employerId,
-          driver_id: selectedDriver.driver_id,
-          job_title: jobForm.jobTitle,
-          job_description: jobForm.jobDescription || null,
-          vehicle_class_required: jobForm.vehicleClassRequired || null,
-          location: jobForm.location || null,
-          salary_offered: jobForm.salaryOffered ? parseFloat(jobForm.salaryOffered) : null,
-          work_type: jobForm.workType || null,
-        });
-
-      if (error) throw error;
+      await api.post("/job-requests", {
+        employer_id: employerId,
+        driver_id: selectedDriver.driver_id,
+        job_title: jobForm.jobTitle,
+        job_description: jobForm.jobDescription || null,
+        vehicle_class_required: jobForm.vehicleClassRequired || null,
+        location: jobForm.location || null,
+        salary_offered: jobForm.salaryOffered ? parseFloat(jobForm.salaryOffered) : null,
+        work_type: jobForm.workType || null,
+        status: "pending" // Default status
+      });
 
       toast.success("Job request sent to driver");
       setIsJobDialogOpen(false);
     } catch (error: any) {
-      toast.error(error.message || "Failed to send job request");
+      toast.error(error.response?.data?.message || "Failed to send job request");
     } finally {
       setSubmitting(false);
     }
   };
 
-  useEffect(() => {
-    if (hasRecruitmentAccess) {
-      searchDrivers();
-    }
-  }, [hasRecruitmentAccess]);
+
 
   if (!hasRecruitmentAccess) {
     return (

@@ -19,7 +19,7 @@ import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import api from "@/lib/api";
 import {
   CheckCircle2,
   XCircle,
@@ -71,11 +71,11 @@ interface TestResults {
   licence_verified: boolean;
   police_clearance_verified: boolean;
   identity_status: string;
-  
+
   // Traffic Test
   traffic_test_answers: Record<string, string>;
   traffic_test_score: number;
-  
+
   // Practical Driving (60 points)
   vehicle_control_score: number;
   parallel_parking_score: number;
@@ -83,7 +83,7 @@ interface TestResults {
   emergency_handling_score: number;
   defensive_driving_score: number;
   practical_notes: string;
-  
+
   // Vehicle Inspection (20 points)
   brake_system_score: number;
   engine_fluids_score: number;
@@ -91,7 +91,7 @@ interface TestResults {
   lights_safety_score: number;
   diagnosis_score: number;
   inspection_notes: string;
-  
+
   tested_by: string;
 }
 
@@ -112,7 +112,7 @@ const DrivingTestSheet = ({ open, onOpenChange, application, partnerId, onComple
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [generatingCredentials, setGeneratingCredentials] = useState(false);
-  
+
   const [results, setResults] = useState<TestResults>({
     identity_photo_match: false,
     licence_verified: false,
@@ -144,21 +144,16 @@ const DrivingTestSheet = ({ open, onOpenChange, application, partnerId, onComple
   }, [open, application]);
 
   // Realtime subscription for traffic test results
+  // Replaced with polling for now as socket.io implementation is pending on frontend
   useEffect(() => {
-    if (!application || !trafficSession) return;
+    if (!application || !trafficSession || trafficSession.status === 'completed') return;
 
-    const channel = supabase
-      .channel(`traffic-session-${trafficSession.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'traffic_test_sessions',
-          filter: `id=eq.${trafficSession.id}`,
-        },
-        (payload) => {
-          const updated = payload.new as any;
+    const interval = setInterval(async () => {
+      try {
+        const response = await api.get(`/traffic-test/session/${application.id}`);
+        const updated = response.data;
+
+        if (updated) {
           setTrafficSession({
             id: updated.id,
             test_user_id: updated.test_user_id,
@@ -167,7 +162,7 @@ const DrivingTestSheet = ({ open, onOpenChange, application, partnerId, onComple
             score: updated.score,
             completed_at: updated.completed_at,
           });
-          
+
           // Update results with traffic score
           if (updated.status === 'completed' && updated.score !== null) {
             setResults(prev => ({
@@ -177,87 +172,88 @@ const DrivingTestSheet = ({ open, onOpenChange, application, partnerId, onComple
             toast.success(`Traffic test completed! Score: ${updated.score}/20`);
           }
         }
-      )
-      .subscribe();
+      } catch (e) {
+        console.error("Error polling traffic session", e);
+      }
+    }, 5000); // Poll every 5 seconds
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [application, trafficSession?.id]);
+    return () => clearInterval(interval);
+  }, [application, trafficSession?.id, trafficSession?.status]);
 
   const fetchQuestions = async () => {
-    const { data } = await supabase
-      .from("traffic_law_questions")
-      .select("*")
-      .eq("status", "active")
-      .limit(25);
-    
-    if (data) setQuestions(data);
+    try {
+      const response = await api.get("/traffic-test/questions");
+      if (response.data) setQuestions(response.data);
+    } catch (error) {
+      console.error("Error fetching questions:", error);
+    }
   };
 
   const fetchExistingResults = async () => {
     if (!application) return;
-    
-    const { data } = await supabase
-      .from("driving_test_results")
-      .select("*")
-      .eq("application_id", application.id)
-      .maybeSingle();
-    
-    if (data) {
-      setExistingResults(data);
-      // Always populate state so completed/submitted tests are readable.
-      // Inputs will be disabled when `submitted_at` is set.
-      setResults({
-        identity_photo_match: data.identity_photo_match || false,
-        licence_verified: data.licence_verified || false,
-        police_clearance_verified: data.police_clearance_verified || false,
-        identity_status: data.identity_status || "pending",
-        traffic_test_answers: (data.traffic_test_answers as Record<string, string>) || {},
-        traffic_test_score: data.traffic_test_score || 0,
-        vehicle_control_score: data.vehicle_control_score || 0,
-        parallel_parking_score: data.parallel_parking_score || 0,
-        hill_driving_score: data.hill_driving_score || 0,
-        emergency_handling_score: data.emergency_handling_score || 0,
-        defensive_driving_score: data.defensive_driving_score || 0,
-        practical_notes: data.practical_notes || "",
-        brake_system_score: data.brake_system_score || 0,
-        engine_fluids_score: data.engine_fluids_score || 0,
-        tyres_score: data.tyres_score || 0,
-        lights_safety_score: data.lights_safety_score || 0,
-        diagnosis_score: data.diagnosis_score || 0,
-        inspection_notes: data.inspection_notes || "",
-        tested_by: data.tested_by || "",
-      });
+
+    try {
+      const response = await api.get(`/driving-test/results/${application.id}`);
+      const data = response.data;
+
+      if (data) {
+        setExistingResults(data);
+        // Always populate state so completed/submitted tests are readable.
+        // Inputs will be disabled when `submitted_at` is set.
+        setResults({
+          identity_photo_match: data.identity_photo_match || false,
+          licence_verified: data.licence_verified || false,
+          police_clearance_verified: data.police_clearance_verified || false,
+          identity_status: data.identity_status || "pending",
+          traffic_test_answers: (data.traffic_test_answers as Record<string, string>) || {},
+          traffic_test_score: data.traffic_test_score || 0,
+          vehicle_control_score: data.vehicle_control_score || 0,
+          parallel_parking_score: data.parallel_parking_score || 0,
+          hill_driving_score: data.hill_driving_score || 0,
+          emergency_handling_score: data.emergency_handling_score || 0,
+          defensive_driving_score: data.defensive_driving_score || 0,
+          practical_notes: data.practical_notes || "",
+          brake_system_score: data.brake_system_score || 0,
+          engine_fluids_score: data.engine_fluids_score || 0,
+          tyres_score: data.tyres_score || 0,
+          lights_safety_score: data.lights_safety_score || 0,
+          diagnosis_score: data.diagnosis_score || 0,
+          inspection_notes: data.inspection_notes || "",
+          tested_by: data.tested_by || "",
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching existing results:", error);
     }
   };
 
   const fetchTrafficSession = async () => {
     if (!application) return;
 
-    const { data } = await supabase
-      .from("traffic_test_sessions")
-      .select("*")
-      .eq("application_id", application.id)
-      .maybeSingle();
+    try {
+      const response = await api.get(`/traffic-test/session/${application.id}`);
+      const data = response.data;
 
-    if (data) {
-      setTrafficSession({
-        id: data.id,
-        test_user_id: data.test_user_id,
-        secret_key: data.secret_key,
-        status: data.status || 'pending',
-        score: data.score,
-        completed_at: data.completed_at,
-      });
-      
-      // If session completed, update traffic score
-      if (data.status === 'completed' && data.score !== null) {
-        setResults(prev => ({
-          ...prev,
-          traffic_test_score: data.score,
-        }));
+      if (data) {
+        setTrafficSession({
+          id: data.id,
+          test_user_id: data.test_user_id,
+          secret_key: data.secret_key,
+          status: data.status || 'pending',
+          score: data.score,
+          completed_at: data.completed_at,
+        });
+
+        // If session completed, update traffic score
+        if (data.status === 'completed' && data.score !== null) {
+          setResults(prev => ({
+            ...prev,
+            traffic_test_score: data.score,
+          }));
+        }
       }
+    } catch (error) {
+      console.error("Error fetching traffic session:", error);
     }
   };
 
@@ -266,23 +262,12 @@ const DrivingTestSheet = ({ open, onOpenChange, application, partnerId, onComple
 
     setGeneratingCredentials(true);
     try {
-      // Generate random credentials
-      const testUserId = `DRV${Date.now().toString(36).toUpperCase()}`;
-      const secretKey = Math.random().toString(36).substring(2, 10).toUpperCase();
+      const response = await api.post("/traffic-test/session", {
+        application_id: application.id,
+        driving_school_id: partnerId,
+      });
 
-      const { data, error } = await supabase
-        .from("traffic_test_sessions")
-        .insert({
-          application_id: application.id,
-          driving_school_id: partnerId,
-          test_user_id: testUserId,
-          secret_key: secretKey,
-          status: 'pending',
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
+      const data = response.data;
 
       setTrafficSession({
         id: data.id,
@@ -295,7 +280,7 @@ const DrivingTestSheet = ({ open, onOpenChange, application, partnerId, onComple
 
       toast.success("Credentials generated successfully!");
     } catch (error: any) {
-      toast.error(error.message || "Failed to generate credentials");
+      toast.error(error.response?.data?.message || "Failed to generate credentials");
     } finally {
       setGeneratingCredentials(false);
     }
@@ -321,18 +306,18 @@ const DrivingTestSheet = ({ open, onOpenChange, application, partnerId, onComple
     return Math.round((score / Math.max(questions.length, 1)) * 20);
   };
 
-  const practicalTotal = 
-    results.vehicle_control_score + 
-    results.parallel_parking_score + 
-    results.hill_driving_score + 
-    results.emergency_handling_score + 
+  const practicalTotal =
+    results.vehicle_control_score +
+    results.parallel_parking_score +
+    results.hill_driving_score +
+    results.emergency_handling_score +
     results.defensive_driving_score;
 
-  const inspectionTotal = 
-    results.brake_system_score + 
-    results.engine_fluids_score + 
-    results.tyres_score + 
-    results.lights_safety_score + 
+  const inspectionTotal =
+    results.brake_system_score +
+    results.engine_fluids_score +
+    results.tyres_score +
+    results.lights_safety_score +
     results.diagnosis_score;
 
   const trafficScore = calculateTrafficScore();
@@ -397,34 +382,19 @@ const DrivingTestSheet = ({ open, onOpenChange, application, partnerId, onComple
       };
 
       if (existingResults) {
-        const { error } = await supabase
-          .from("driving_test_results")
-          .update(testData)
-          .eq("id", existingResults.id);
-        if (error) throw error;
+        await api.patch(`/driving-test/results/${existingResults.id}`, testData);
       } else {
-        const { error } = await supabase
-          .from("driving_test_results")
-          .insert(testData);
-        if (error) throw error;
+        await api.post("/driving-test/results", testData);
       }
 
-      // Update application status
+      // Update application status via API if submitting
       if (submit) {
-        const { error: appError } = await supabase
-          .from("applications")
-          .update({
-            identity_verified: isIdentityVerified,
-            driving_test_passed: isOverallPassed,
-            skill_grade: getSkillGrade(totalScore),
-            status: isOverallPassed ? "driving_test_completed" : "driving_test_failed",
-          })
-          .eq("id", application.id);
-        
-        if (appError) {
-          console.error("Failed to update application:", appError);
-          throw appError;
-        }
+        await api.patch(`/applications/${application.id}/status`, {
+          identity_verified: isIdentityVerified,
+          driving_test_passed: isOverallPassed,
+          skill_grade: getSkillGrade(totalScore),
+          status: isOverallPassed ? "driving_test_completed" : "driving_test_failed",
+        });
       }
 
       toast.success(submit ? "Test results submitted" : "Progress saved");
@@ -433,7 +403,7 @@ const DrivingTestSheet = ({ open, onOpenChange, application, partnerId, onComple
         onOpenChange(false);
       }
     } catch (error: any) {
-      toast.error(error.message || "Failed to save results");
+      toast.error(error.response?.data?.message || "Failed to save results");
     } finally {
       setSubmitting(false);
     }
@@ -531,7 +501,7 @@ const DrivingTestSheet = ({ open, onOpenChange, application, partnerId, onComple
                   <Checkbox
                     id="photo_match"
                     checked={results.identity_photo_match}
-                    onCheckedChange={(checked) => 
+                    onCheckedChange={(checked) =>
                       setResults({ ...results, identity_photo_match: checked as boolean })}
                     disabled={isSubmitted}
                   />
@@ -544,12 +514,12 @@ const DrivingTestSheet = ({ open, onOpenChange, application, partnerId, onComple
                     <XCircle className="w-5 h-5 text-muted-foreground" />
                   )}
                 </div>
-                
+
                 <div className="flex items-center space-x-3">
                   <Checkbox
                     id="licence_verified"
                     checked={results.licence_verified}
-                    onCheckedChange={(checked) => 
+                    onCheckedChange={(checked) =>
                       setResults({ ...results, licence_verified: checked as boolean })}
                     disabled={isSubmitted}
                   />
@@ -562,12 +532,12 @@ const DrivingTestSheet = ({ open, onOpenChange, application, partnerId, onComple
                     <XCircle className="w-5 h-5 text-muted-foreground" />
                   )}
                 </div>
-                
+
                 <div className="flex items-center space-x-3">
                   <Checkbox
                     id="police_clearance"
                     checked={results.police_clearance_verified}
-                    onCheckedChange={(checked) => 
+                    onCheckedChange={(checked) =>
                       setResults({ ...results, police_clearance_verified: checked as boolean })}
                     disabled={isSubmitted}
                   />
@@ -635,28 +605,28 @@ const DrivingTestSheet = ({ open, onOpenChange, application, partnerId, onComple
                     {/* Credentials Display */}
                     <div className="p-4 bg-muted rounded-lg space-y-4">
                       <h4 className="font-medium text-sm text-muted-foreground">TEST CREDENTIALS</h4>
-                      
+
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-xs text-muted-foreground">User ID</p>
                           <p className="font-mono text-lg font-bold">{trafficSession.test_user_id}</p>
                         </div>
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           variant="outline"
                           onClick={() => copyToClipboard(trafficSession.test_user_id, "User ID")}
                         >
                           <Copy className="w-4 h-4" />
                         </Button>
                       </div>
-                      
+
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-xs text-muted-foreground">Secret Key</p>
                           <p className="font-mono text-lg font-bold">{trafficSession.secret_key}</p>
                         </div>
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           variant="outline"
                           onClick={() => copyToClipboard(trafficSession.secret_key, "Secret Key")}
                         >
@@ -670,8 +640,8 @@ const DrivingTestSheet = ({ open, onOpenChange, application, partnerId, onComple
                       <p className="text-sm text-muted-foreground mb-2">
                         Driver should visit the Traffic Test Portal:
                       </p>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         className="w-full"
                         onClick={() => window.open('/traffic-test', '_blank')}
                       >
@@ -681,30 +651,28 @@ const DrivingTestSheet = ({ open, onOpenChange, application, partnerId, onComple
                     </div>
 
                     {/* Status */}
-                    <div className={`p-4 rounded-lg ${
-                      trafficSession.status === 'completed' 
-                        ? 'bg-success/10 border border-success' 
-                        : trafficSession.status === 'in_progress'
+                    <div className={`p-4 rounded-lg ${trafficSession.status === 'completed'
+                      ? 'bg-success/10 border border-success'
+                      : trafficSession.status === 'in_progress'
                         ? 'bg-warning/10 border border-warning'
                         : 'bg-muted'
-                    }`}>
+                      }`}>
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm font-medium">Test Status</p>
                           <Badge variant={
                             trafficSession.status === 'completed' ? 'success' :
-                            trafficSession.status === 'in_progress' ? 'warning' : 'secondary'
+                              trafficSession.status === 'in_progress' ? 'warning' : 'secondary'
                           }>
                             {trafficSession.status === 'completed' ? 'Completed' :
-                             trafficSession.status === 'in_progress' ? 'In Progress' : 'Pending'}
+                              trafficSession.status === 'in_progress' ? 'In Progress' : 'Pending'}
                           </Badge>
                         </div>
                         {trafficSession.status === 'completed' && (
                           <div className="text-right">
                             <p className="text-sm text-muted-foreground">Score</p>
-                            <p className={`text-2xl font-bold ${
-                              (trafficSession.score || 0) >= 12 ? 'text-success' : 'text-destructive'
-                            }`}>
+                            <p className={`text-2xl font-bold ${(trafficSession.score || 0) >= 12 ? 'text-success' : 'text-destructive'
+                              }`}>
                               {trafficSession.score}/20
                             </p>
                             <Badge variant={(trafficSession.score || 0) >= 12 ? 'success' : 'destructive'}>

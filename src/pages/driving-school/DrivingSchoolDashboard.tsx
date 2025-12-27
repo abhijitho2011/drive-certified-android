@@ -1,69 +1,65 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Users, ClipboardCheck, Clock, CheckCircle2, XCircle, RotateCcw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import api from "@/lib/api";
 import { toast } from "sonner";
 import DrivingTestSheet from "@/components/driving-school/DrivingTestSheet";
+
+interface Application {
+  id: string;
+  driver_id: string;
+  drivers?: {
+    first_name: string;
+    last_name: string;
+  } | null;
+  status: string;
+  driving_test_passed: boolean;
+  skill_grade?: string | null;
+  licence_number?: string;
+  identity_verified?: boolean;
+}
 
 const DrivingSchoolDashboard = () => {
   const { user } = useAuth();
   const [partnerData, setPartnerData] = useState<{ id: string; name: string } | null>(null);
-  const [applications, setApplications] = useState<any[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedApp, setSelectedApp] = useState<any>(null);
+  const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [isTestOpen, setIsTestOpen] = useState(false);
   const [retesting, setRetesting] = useState<string | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!user) return;
-    
-    const { data: partner } = await supabase
-      .from("partners")
-      .select("id, name")
-      .eq("user_id", user.id)
-      .eq("partner_type", "driving_school")
-      .maybeSingle();
-    
-    if (partner) {
-      setPartnerData(partner);
-      // Use role-specific view that only exposes driving-related data (no medical data)
-      const { data: apps } = await supabase
-        .from("applications_driving_school")
-        .select(`*`)
-        .eq("driving_school_id", partner.id);
-      
-      // Fetch driver names separately (only for assigned drivers)
-      if (apps && apps.length > 0) {
-        const driverIds = apps.map(a => a.driver_id);
-        const { data: drivers } = await supabase
-          .from("drivers")
-          .select("id, first_name, last_name")
-          .in("id", driverIds);
-        
-        const appsWithDrivers = apps.map(app => ({
-          ...app,
-          drivers: drivers?.find(d => d.id === app.driver_id) || null
-        }));
-        setApplications(appsWithDrivers);
-      } else {
-        setApplications([]);
-      }
-    }
-    setLoading(false);
-  };
 
-  useEffect(() => { fetchData(); }, [user]);
+    try {
+      const partnerRes = await api.get(`/partners/user/${user.id}`);
+      const partner = partnerRes.data;
+
+      if (partner && partner.partner_type === 'driving_school') {
+        setPartnerData(partner);
+
+        const appsRes = await api.get(`/applications/driving-school/${partner.id}`);
+        setApplications(appsRes.data || []);
+      }
+    } catch (error: any) {
+      console.error("Error fetching driving school data:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   // Pending: not yet tested (no result or status is pending)
-  const pendingTests = applications.filter(app => 
+  const pendingTests = applications.filter(app =>
     !app.driving_test_passed && app.status !== 'driving_test_failed'
   );
   // Failed: tested but failed
-  const failedTests = applications.filter(app => 
+  const failedTests = applications.filter(app =>
     app.status === 'driving_test_failed' || (!app.driving_test_passed && app.skill_grade === 'Fail')
   );
   // Passed: completed and passed
@@ -76,35 +72,14 @@ const DrivingSchoolDashboard = () => {
     { label: "Failed Tests", value: failedTests.length, icon: XCircle, color: "text-destructive" },
   ];
 
-  const handleRetest = async (app: any) => {
+  const handleRetest = async (app: Application) => {
     setRetesting(app.id);
     try {
-      // Delete existing test results for this application
-      await supabase
-        .from("driving_test_results")
-        .delete()
-        .eq("application_id", app.id);
-
-      // Delete existing traffic test session
-      await supabase
-        .from("traffic_test_sessions")
-        .delete()
-        .eq("application_id", app.id);
-
-      // Reset application status
-      await supabase
-        .from("applications")
-        .update({
-          driving_test_passed: false,
-          skill_grade: null,
-          status: 'pending',
-        })
-        .eq("id", app.id);
-
+      await api.post(`/driving-test/reset/${app.id}`);
       toast.success("Ready for retest. Click 'Start Test' to begin.");
       fetchData();
     } catch (error: any) {
-      toast.error(error.message || "Failed to reset test");
+      toast.error(error.response?.data?.message || "Failed to reset test");
     } finally {
       setRetesting(null);
     }
@@ -206,8 +181,8 @@ const DrivingSchoolDashboard = () => {
                     </div>
                     <div className="flex items-center gap-3">
                       <Badge variant="destructive">Failed</Badge>
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         variant="outline"
                         onClick={() => handleRetest(app)}
                         disabled={retesting === app.id}

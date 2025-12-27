@@ -37,8 +37,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { 
-  Users, 
+import {
+  Users,
   Building2,
   FileText,
   Settings,
@@ -65,7 +65,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import api from "@/lib/api";
 import ClientProfileSheet from "@/components/admin/ClientProfileSheet";
 import ApplicationDetailSheet from "@/components/admin/ApplicationDetailSheet";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -176,12 +176,12 @@ const AdminDashboard = () => {
   const [isPartnerSheetOpen, setIsPartnerSheetOpen] = useState(false);
   const [isEditPartnerOpen, setIsEditPartnerOpen] = useState(false);
   const [isDataUserSheetOpen, setIsDataUserSheetOpen] = useState(false);
-  
+
   const [isEditDriverOpen, setIsEditDriverOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isStateSheetOpen, setIsStateSheetOpen] = useState(false);
   const [isDistrictSheetOpen, setIsDistrictSheetOpen] = useState(false);
-  
+
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
   const [selectedStateForDistrict, setSelectedStateForDistrict] = useState<State | null>(null);
@@ -252,59 +252,20 @@ const AdminDashboard = () => {
     setLoading(true);
     try {
       const [driversRes, partnersRes, dataUsersRes, applicationsRes, statesRes, districtsRes] = await Promise.all([
-        supabase.from("drivers").select("*").order("created_at", { ascending: false }),
-        supabase.from("partners").select("*").order("created_at", { ascending: false }),
-        supabase.from("data_users").select("*").order("created_at", { ascending: false }),
-        supabase.from("applications").select("*, drivers(*)").order("created_at", { ascending: false }),
-        supabase.from("states").select("*").order("name", { ascending: true }),
-        supabase.from("districts").select("*").order("name", { ascending: true }),
+        api.get("/admin/drivers"),
+        api.get("/admin/partners"),
+        api.get("/admin/data-users"),
+        api.get("/admin/applications"),
+        api.get("/states"),
+        api.get("/districts"),
       ]);
 
-      if (driversRes.error) {
-        console.error("Failed to load clients (drivers):", driversRes.error);
-        toast.error("Failed to load clients");
-        setDrivers([]);
-      } else {
-        setDrivers(driversRes.data || []);
-      }
-
-      if (partnersRes.error) {
-        console.error("Failed to load partners:", partnersRes.error);
-        toast.error("Failed to load partners");
-        setPartners([]);
-      } else {
-        setPartners(partnersRes.data || []);
-      }
-
-      if (dataUsersRes.error) {
-        console.error("Failed to load enterprise users:", dataUsersRes.error);
-        toast.error("Failed to load enterprise users");
-        setDataUsers([]);
-      } else {
-        setDataUsers(dataUsersRes.data || []);
-      }
-
-      if (applicationsRes.error) {
-        console.error("Failed to load applications:", applicationsRes.error);
-        toast.error("Failed to load applications");
-        setApplications([]);
-      } else {
-        setApplications((applicationsRes.data as Application[]) || []);
-      }
-
-      if (statesRes.error) {
-        console.error("Failed to load states:", statesRes.error);
-        setStates([]);
-      } else {
-        setStates(statesRes.data || []);
-      }
-
-      if (districtsRes.error) {
-        console.error("Failed to load districts:", districtsRes.error);
-        setDistricts([]);
-      } else {
-        setDistricts(districtsRes.data || []);
-      }
+      setDrivers(driversRes.data || []);
+      setPartners(partnersRes.data || []);
+      setDataUsers(dataUsersRes.data || []);
+      setApplications(applicationsRes.data || []);
+      setStates(statesRes.data || []);
+      setDistricts(districtsRes.data || []);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error("Failed to fetch data");
@@ -320,8 +281,7 @@ const AdminDashboard = () => {
     }
 
     try {
-      // Create partner record - admin will use "Set Password" to create auth credentials
-      const { error } = await supabase.from("partners").insert({
+      await api.post("/admin/partners", {
         partner_type: partnerType,
         name: partnerForm.name,
         address: partnerForm.address,
@@ -332,15 +292,13 @@ const AdminDashboard = () => {
         state: partnerForm.state,
       });
 
-      if (error) throw error;
-
       toast.success("Partner added successfully. Use 'Set Password' to create login credentials.");
       setIsPartnerSheetOpen(false);
       setPartnerForm({ name: "", address: "", contactNumber: "", email: "", gst: "", district: "", state: "" });
       setPartnerType("");
       fetchData();
     } catch (error: any) {
-      toast.error(error.message || "Failed to add partner");
+      toast.error(error.response?.data?.message || "Failed to add partner");
     }
   };
 
@@ -367,26 +325,21 @@ const AdminDashboard = () => {
     }
 
     try {
-      const { error } = await supabase
-        .from("partners")
-        .update({
-          name: editPartnerForm.name,
-          address: editPartnerForm.address,
-          contact_number: editPartnerForm.contactNumber,
-          email: editPartnerForm.email || null,
-          gst: editPartnerForm.gst || null,
-          district: editPartnerForm.district,
-          state: editPartnerForm.state,
-        })
-        .eq("id", selectedPartner.id);
-
-      if (error) throw error;
+      await api.patch(`/admin/partners/${selectedPartner.id}`, {
+        name: editPartnerForm.name,
+        address: editPartnerForm.address,
+        contact_number: editPartnerForm.contactNumber,
+        email: editPartnerForm.email || null,
+        gst: editPartnerForm.gst || null,
+        district: editPartnerForm.district,
+        state: editPartnerForm.state,
+      });
 
       toast.success("Partner updated successfully");
       setIsEditPartnerOpen(false);
       fetchData();
     } catch (error: any) {
-      toast.error(error.message || "Failed to update partner");
+      toast.error(error.response?.data?.message || "Failed to update partner");
     }
   };
 
@@ -397,7 +350,7 @@ const AdminDashboard = () => {
     }
 
     try {
-      const { error } = await supabase.from("data_users").insert({
+      await api.post("/admin/data-users", {
         company_name: dataUserForm.companyName,
         contact_person: dataUserForm.contactPerson,
         phone: dataUserForm.phone,
@@ -407,14 +360,12 @@ const AdminDashboard = () => {
         state: dataUserForm.state || null,
       });
 
-      if (error) throw error;
-
       toast.success("Enterprise user added successfully");
       setIsDataUserSheetOpen(false);
       setDataUserForm({ companyName: "", contactPerson: "", phone: "", email: "", address: "", district: "", state: "" });
       fetchData();
     } catch (error: any) {
-      toast.error(error.message || "Failed to add enterprise user");
+      toast.error(error.response?.data?.message || "Failed to add enterprise user");
     }
   };
 
@@ -430,23 +381,18 @@ const AdminDashboard = () => {
 
   const handleBlacklistPartner = async (partner: Partner) => {
     const newStatus = partner.status === "blacklisted" ? "active" : "blacklisted";
-    
-    try {
-      const { error } = await supabase
-        .from("partners")
-        .update({ status: newStatus })
-        .eq("id", partner.id);
 
-      if (error) throw error;
+    try {
+      await api.patch(`/admin/partners/${partner.id}/status`, { status: newStatus });
 
       toast.success(
-        newStatus === "blacklisted" 
-          ? "Partner blacklisted successfully" 
+        newStatus === "blacklisted"
+          ? "Partner blacklisted successfully"
           : "Partner restored successfully"
       );
       fetchData();
     } catch (error: any) {
-      toast.error(error.message || "Failed to update partner status");
+      toast.error(error.response?.data?.message || "Failed to update partner status");
     }
   };
 
@@ -469,17 +415,17 @@ const AdminDashboard = () => {
   const handleSavePassword = async () => {
     const targetId = passwordTargetType === "partner" ? selectedPartner?.id : selectedDataUser?.id;
     if (!targetId) return;
-    
+
     if (!passwordForm.email || !passwordForm.password) {
       toast.error("Email and password are required");
       return;
     }
-    
+
     if (passwordForm.password !== passwordForm.confirmPassword) {
       toast.error("Passwords do not match");
       return;
     }
-    
+
     if (passwordForm.password.length < 6) {
       toast.error("Password must be at least 6 characters");
       return;
@@ -487,37 +433,21 @@ const AdminDashboard = () => {
 
     setPasswordLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast.error("Not authenticated");
-        return;
-      }
-
-      const functionName = passwordTargetType === "partner" ? "set-partner-password" : "set-data-user-password";
       const bodyKey = passwordTargetType === "partner" ? "partnerId" : "dataUserId";
 
-      const response = await supabase.functions.invoke(functionName, {
-        body: {
-          [bodyKey]: targetId,
-          email: passwordForm.email,
-          password: passwordForm.password,
-        },
+      await api.post("/auth/admin/set-password", {
+        [bodyKey]: targetId,
+        email: passwordForm.email,
+        password: passwordForm.password,
+        type: passwordTargetType
       });
 
-      if (response.error) {
-        throw new Error(response.error.message || "Failed to set password");
-      }
-
-      if (response.data?.error) {
-        throw new Error(response.data.error);
-      }
-
-      toast.success(response.data?.message || "Password set successfully");
+      toast.success("Password set successfully");
       setIsPasswordDialogOpen(false);
       setPasswordForm({ email: "", password: "", confirmPassword: "" });
       fetchData();
     } catch (error: any) {
-      toast.error(error.message || "Failed to set password");
+      toast.error(error.response?.data?.message || "Failed to set password");
     } finally {
       setPasswordLoading(false);
     }
@@ -541,26 +471,21 @@ const AdminDashboard = () => {
     if (!selectedDriver) return;
 
     try {
-      const { error } = await supabase
-        .from("drivers")
-        .update({
-          first_name: editDriverForm.firstName,
-          last_name: editDriverForm.lastName,
-          address: editDriverForm.address,
-          district: editDriverForm.district,
-          state: editDriverForm.state,
-          pin_code: editDriverForm.pinCode,
-          phone: editDriverForm.phone,
-        })
-        .eq("id", selectedDriver.id);
-
-      if (error) throw error;
+      await api.patch(`/admin/drivers/${selectedDriver.id}`, {
+        first_name: editDriverForm.firstName,
+        last_name: editDriverForm.lastName,
+        address: editDriverForm.address,
+        district: editDriverForm.district,
+        state: editDriverForm.state,
+        pin_code: editDriverForm.pinCode,
+        phone: editDriverForm.phone,
+      });
 
       toast.success("Driver updated successfully");
       setIsEditDriverOpen(false);
       fetchData();
     } catch (error: any) {
-      toast.error(error.message || "Failed to update driver");
+      toast.error(error.response?.data?.message || "Failed to update driver");
     }
   };
 
@@ -568,33 +493,30 @@ const AdminDashboard = () => {
     if (!deleteTarget) return;
 
     try {
-      let error;
       switch (deleteTarget.type) {
         case "driver":
-          ({ error } = await supabase.from("drivers").delete().eq("id", deleteTarget.id));
+          await api.delete(`/admin/drivers/${deleteTarget.id}`);
           break;
         case "partner":
-          ({ error } = await supabase.from("partners").delete().eq("id", deleteTarget.id));
+          await api.delete(`/admin/partners/${deleteTarget.id}`);
           break;
         case "data_user":
-          ({ error } = await supabase.from("data_users").delete().eq("id", deleteTarget.id));
+          await api.delete(`/admin/data-users/${deleteTarget.id}`);
           break;
         case "state":
-          ({ error } = await supabase.from("states").delete().eq("id", deleteTarget.id));
+          await api.delete(`/states/${deleteTarget.id}`);
           break;
         case "district":
-          ({ error } = await supabase.from("districts").delete().eq("id", deleteTarget.id));
+          await api.delete(`/districts/${deleteTarget.id}`);
           break;
       }
-
-      if (error) throw error;
 
       toast.success(`${deleteTarget.name} deleted successfully`);
       setIsDeleteDialogOpen(false);
       setDeleteTarget(null);
       fetchData();
     } catch (error: any) {
-      toast.error(error.message || "Failed to delete");
+      toast.error(error.response?.data?.message || "Failed to delete");
     }
   };
 
@@ -611,19 +533,17 @@ const AdminDashboard = () => {
     }
 
     try {
-      const { error } = await supabase.from("states").insert({
+      await api.post("/states", {
         name: stateForm.name,
         code: stateForm.code || null,
       });
-
-      if (error) throw error;
 
       toast.success("State added successfully");
       setIsStateSheetOpen(false);
       setStateForm({ name: "", code: "" });
       fetchData();
     } catch (error: any) {
-      toast.error(error.message || "Failed to add state");
+      toast.error(error.response?.data?.message || "Failed to add state");
     }
   };
 
@@ -634,20 +554,18 @@ const AdminDashboard = () => {
     }
 
     try {
-      const { error } = await supabase.from("districts").insert({
+      await api.post("/districts", {
         state_id: selectedStateForDistrict.id,
         name: districtForm.name,
         code: districtForm.code || null,
       });
-
-      if (error) throw error;
 
       toast.success("District added successfully");
       setIsDistrictSheetOpen(false);
       setDistrictForm({ name: "", code: "" });
       fetchData();
     } catch (error: any) {
-      toast.error(error.message || "Failed to add district");
+      toast.error(error.response?.data?.message || "Failed to add district");
     }
   };
 
@@ -743,13 +661,13 @@ const AdminDashboard = () => {
                           <TableCell>{driver.district}</TableCell>
                           <TableCell>{driver.state}</TableCell>
                           <TableCell>
-                            <Badge 
+                            <Badge
                               variant={
-                                driver.status === "active" 
-                                  ? "approved" 
-                                  : driver.status === "blacklisted" 
-                                  ? "rejected" 
-                                  : "pending"
+                                driver.status === "active"
+                                  ? "approved"
+                                  : driver.status === "blacklisted"
+                                    ? "rejected"
+                                    : "pending"
                               }
                             >
                               {driver.status}
@@ -763,9 +681,9 @@ const AdminDashboard = () => {
                               <Button size="icon" variant="ghost" onClick={() => handleEditDriver(driver)}>
                                 <Pencil className="w-4 h-4" />
                               </Button>
-                              <Button 
-                                size="icon" 
-                                variant="ghost" 
+                              <Button
+                                size="icon"
+                                variant="ghost"
                                 className="text-destructive"
                                 onClick={() => openDeleteDialog("driver", driver.id, `${driver.first_name} ${driver.last_name}`)}
                               >
@@ -822,24 +740,24 @@ const AdminDashboard = () => {
                               ) : (
                                 <Stethoscope className="w-4 h-4 text-primary" />
                               )}
-                              {partner.partner_type === "driving_school" 
-                                ? "Driving School" 
+                              {partner.partner_type === "driving_school"
+                                ? "Driving School"
                                 : partner.partner_type === "verification_agent"
-                                ? "Verification Agent"
-                                : "Medical Lab"}
+                                  ? "Verification Agent"
+                                  : "Medical Lab"}
                             </div>
                           </TableCell>
                           <TableCell className="font-medium">{partner.name}</TableCell>
                           <TableCell>{partner.contact_number}</TableCell>
                           <TableCell>{partner.district}</TableCell>
                           <TableCell>
-                            <Badge 
+                            <Badge
                               variant={
-                                partner.status === "active" 
-                                  ? "approved" 
-                                  : partner.status === "blacklisted" 
-                                  ? "rejected" 
-                                  : "pending"
+                                partner.status === "active"
+                                  ? "approved"
+                                  : partner.status === "blacklisted"
+                                    ? "rejected"
+                                    : "pending"
                               }
                             >
                               {partner.status}
@@ -850,27 +768,27 @@ const AdminDashboard = () => {
                               <Button size="icon" variant="ghost" onClick={() => handleEditPartner(partner)}>
                                 <Pencil className="w-4 h-4" />
                               </Button>
-                              <Button 
-                                size="icon" 
-                                variant="ghost" 
+                              <Button
+                                size="icon"
+                                variant="ghost"
                                 className="text-blue-600"
                                 onClick={() => handleSetPassword(partner)}
                                 title="Set Password"
                               >
                                 <Key className="w-4 h-4" />
                               </Button>
-                              <Button 
-                                size="icon" 
-                                variant="ghost" 
+                              <Button
+                                size="icon"
+                                variant="ghost"
                                 className={partner.status === "blacklisted" ? "text-green-600" : "text-orange-500"}
                                 onClick={() => handleBlacklistPartner(partner)}
                                 title={partner.status === "blacklisted" ? "Restore Partner" : "Blacklist Partner"}
                               >
                                 <Ban className="w-4 h-4" />
                               </Button>
-                              <Button 
-                                size="icon" 
-                                variant="ghost" 
+                              <Button
+                                size="icon"
+                                variant="ghost"
                                 className="text-destructive"
                                 onClick={() => openDeleteDialog("partner", partner.id, partner.name)}
                               >
@@ -924,14 +842,14 @@ const AdminDashboard = () => {
                           <TableCell>{user.phone}</TableCell>
                           <TableCell>{user.email || "-"}</TableCell>
                           <TableCell>
-                            <Badge 
+                            <Badge
                               variant={(user as any).recruitment_access ? "approved" : "secondary"}
                               className="cursor-pointer"
                               onClick={async () => {
                                 const newAccess = !(user as any).recruitment_access;
                                 const { error } = await supabase
                                   .from("data_users")
-                                  .update({ 
+                                  .update({
                                     recruitment_access: newAccess,
                                     recruitment_access_approved_at: newAccess ? new Date().toISOString() : null
                                   })
@@ -953,17 +871,17 @@ const AdminDashboard = () => {
                             </Badge>
                           </TableCell>
                           <TableCell className="flex items-center gap-1">
-                            <Button 
-                              size="icon" 
+                            <Button
+                              size="icon"
                               variant="ghost"
                               onClick={() => handleSetDataUserPassword(user)}
                               title="Set Password"
                             >
                               <Key className="w-4 h-4" />
                             </Button>
-                            <Button 
-                              size="icon" 
-                              variant="ghost" 
+                            <Button
+                              size="icon"
+                              variant="ghost"
                               className="text-destructive"
                               onClick={() => openDeleteDialog("data_user", user.id, user.company_name)}
                             >
@@ -1011,26 +929,26 @@ const AdminDashboard = () => {
                           <TableCell>{getStatusBadge(app.status)}</TableCell>
                           <TableCell>
                             <div className="flex gap-1 flex-wrap">
-                              <Badge 
-                                variant={app.identity_verified ? "approved" : "pending"} 
+                              <Badge
+                                variant={app.identity_verified ? "approved" : "pending"}
                                 className="text-xs"
                               >
                                 ID
                               </Badge>
-                              <Badge 
-                                variant={app.driving_test_passed ? "approved" : "pending"} 
+                              <Badge
+                                variant={app.driving_test_passed ? "approved" : "pending"}
                                 className="text-xs"
                               >
                                 Drive
                               </Badge>
-                              <Badge 
-                                variant={app.medical_test_passed ? "approved" : "pending"} 
+                              <Badge
+                                variant={app.medical_test_passed ? "approved" : "pending"}
                                 className="text-xs"
                               >
                                 Med
                               </Badge>
-                              <Badge 
-                                variant={app.education_verified ? "approved" : "pending"} 
+                              <Badge
+                                variant={app.education_verified ? "approved" : "pending"}
                                 className="text-xs"
                               >
                                 Edu
@@ -1039,9 +957,9 @@ const AdminDashboard = () => {
                           </TableCell>
                           <TableCell>{app.certificate_number || "-"}</TableCell>
                           <TableCell>
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
+                            <Button
+                              size="sm"
+                              variant="ghost"
                               onClick={() => handleViewApplication(app)}
                             >
                               <Eye className="w-4 h-4 mr-1" />
@@ -1266,8 +1184,8 @@ const AdminDashboard = () => {
               </div>
               <div className="space-y-2">
                 <Label>State *</Label>
-                <Select 
-                  value={partnerForm.state} 
+                <Select
+                  value={partnerForm.state}
                   onValueChange={(value) => setPartnerForm({ ...partnerForm, state: value, district: "" })}
                 >
                   <SelectTrigger>
@@ -1282,8 +1200,8 @@ const AdminDashboard = () => {
               </div>
               <div className="space-y-2">
                 <Label>District *</Label>
-                <Select 
-                  value={partnerForm.district} 
+                <Select
+                  value={partnerForm.district}
                   onValueChange={(value) => setPartnerForm({ ...partnerForm, district: value })}
                   disabled={!partnerForm.state}
                 >
@@ -1316,11 +1234,11 @@ const AdminDashboard = () => {
             <SheetHeader>
               <SheetTitle>Edit Partner</SheetTitle>
               <SheetDescription>
-                {selectedPartner?.partner_type === "driving_school" 
-                  ? "Driving School" 
+                {selectedPartner?.partner_type === "driving_school"
+                  ? "Driving School"
                   : selectedPartner?.partner_type === "verification_agent"
-                  ? "Verification Agent"
-                  : "Medical Lab"}
+                    ? "Verification Agent"
+                    : "Medical Lab"}
               </SheetDescription>
             </SheetHeader>
             <div className="space-y-4 py-4">
@@ -1367,8 +1285,8 @@ const AdminDashboard = () => {
               </div>
               <div className="space-y-2">
                 <Label>State *</Label>
-                <Select 
-                  value={editPartnerForm.state} 
+                <Select
+                  value={editPartnerForm.state}
                   onValueChange={(value) => setEditPartnerForm({ ...editPartnerForm, state: value, district: "" })}
                 >
                   <SelectTrigger>
@@ -1383,8 +1301,8 @@ const AdminDashboard = () => {
               </div>
               <div className="space-y-2">
                 <Label>District *</Label>
-                <Select 
-                  value={editPartnerForm.district} 
+                <Select
+                  value={editPartnerForm.district}
                   onValueChange={(value) => setEditPartnerForm({ ...editPartnerForm, district: value })}
                   disabled={!editPartnerForm.state}
                 >
@@ -1462,8 +1380,8 @@ const AdminDashboard = () => {
               </div>
               <div className="space-y-2">
                 <Label>State</Label>
-                <Select 
-                  value={dataUserForm.state} 
+                <Select
+                  value={dataUserForm.state}
                   onValueChange={(value) => setDataUserForm({ ...dataUserForm, state: value, district: "" })}
                 >
                   <SelectTrigger>
@@ -1478,8 +1396,8 @@ const AdminDashboard = () => {
               </div>
               <div className="space-y-2">
                 <Label>District</Label>
-                <Select 
-                  value={dataUserForm.district} 
+                <Select
+                  value={dataUserForm.district}
                   onValueChange={(value) => setDataUserForm({ ...dataUserForm, district: value })}
                   disabled={!dataUserForm.state}
                 >
@@ -1555,8 +1473,8 @@ const AdminDashboard = () => {
               </div>
               <div className="space-y-2">
                 <Label>State</Label>
-                <Select 
-                  value={editDriverForm.state} 
+                <Select
+                  value={editDriverForm.state}
                   onValueChange={(value) => setEditDriverForm({ ...editDriverForm, state: value, district: "" })}
                 >
                   <SelectTrigger>
@@ -1571,8 +1489,8 @@ const AdminDashboard = () => {
               </div>
               <div className="space-y-2">
                 <Label>District</Label>
-                <Select 
-                  value={editDriverForm.district} 
+                <Select
+                  value={editDriverForm.district}
                   onValueChange={(value) => setEditDriverForm({ ...editDriverForm, district: value })}
                   disabled={!editDriverForm.state}
                 >

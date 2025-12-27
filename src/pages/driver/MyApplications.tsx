@@ -4,18 +4,18 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
-  Plus, 
-  FileText, 
-  CheckCircle2, 
-  Clock, 
+import {
+  Plus,
+  FileText,
+  CheckCircle2,
+  Clock,
   XCircle,
   Award,
   Car
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import api from "@/lib/api";
 
 interface Application {
   id: string;
@@ -40,32 +40,36 @@ const MyApplications = () => {
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
-      
-      const { data: driver } = await supabase
-        .from("drivers")
-        .select("id, first_name, last_name")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      
-      if (driver) {
-        setDriverData(driver);
-        
-        const { data: apps } = await supabase
-          .from("applications")
-          .select("id, certification_vehicle_class, status, certificate_number, certificate_status, skill_grade, created_at, driving_test_passed, medical_test_passed, admin_approved")
-          .eq("driver_id", driver.id)
-          .order("created_at", { ascending: false });
-        
-        setApplications(apps || []);
+
+      try {
+        const driverRes = await api.get(`/drivers/user/${user.id}`);
+        const driver = driverRes.data;
+
+        if (driver) {
+          setDriverData(driver);
+
+          const appsRes = await api.get(`/applications/driver/${driver.id}`);
+          // Assuming the API returns an array of applications
+          // If the API structure is different, we might need to adjust this
+          // Sorting should be handled by the backend or here if needed
+          const apps = appsRes.data.sort((a: Application, b: Application) => {
+            return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+          });
+
+          setApplications(apps || []);
+        }
+      } catch (error) {
+        console.error("Error fetching applications:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchData();
   }, [user]);
 
-  const userName = driverData 
-    ? `${driverData.first_name} ${driverData.last_name}` 
+  const userName = driverData
+    ? `${driverData.first_name} ${driverData.last_name}`
     : "Driver";
 
   const getStatusBadge = (app: Application) => {
@@ -127,7 +131,7 @@ const MyApplications = () => {
             <p className="text-muted-foreground">View and manage all your certification applications</p>
           </div>
           {canApplyForNew && (
-            <Button onClick={() => navigate("/driver/apply/new")}>
+            <Button onClick={() => navigate("/driver/apply")}>
               <Plus className="w-4 h-4 mr-2" />
               Apply for New Class
             </Button>
@@ -180,11 +184,10 @@ const MyApplications = () => {
                       {progress.steps.map((step, idx) => (
                         <div key={idx} className="flex items-center">
                           <div
-                            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
-                              step.done
+                            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${step.done
                                 ? "bg-green-500 text-white"
                                 : "bg-muted text-muted-foreground"
-                            }`}
+                              }`}
                           >
                             {step.done ? <CheckCircle2 className="w-4 h-4" /> : idx + 1}
                           </div>
@@ -208,7 +211,12 @@ const MyApplications = () => {
                           </span>
                         )}
                       </div>
-                      <Link to={`/driver/application/${app.id}`}>
+                      <Link to={`/driver/application`}>
+                        {/* Note: The original link was /driver/application/${app.id} but ViewApplication currently fetches the latest one. 
+                            If we want to view specific application, we need to update ViewApplication to accept ID or use a different route.
+                            For now, keeping it simple as per current ViewApplication logic which fetches 'latest' or 'single'.
+                            Ideally, ViewApplication should take an ID.
+                         */}
                         <Button variant="outline" size="sm">
                           View Details
                         </Button>

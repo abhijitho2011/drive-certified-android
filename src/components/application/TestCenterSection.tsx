@@ -2,9 +2,9 @@ import { useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { supabase } from "@/integrations/supabase/client";
 import { ApplicationFormData } from "@/pages/driver/ApplicationForm";
 import { Loader2, MapPin, Building2, Stethoscope, Calendar, GraduationCap } from "lucide-react";
+import api from "@/lib/api";
 
 interface Props {
   formData: ApplicationFormData;
@@ -39,16 +39,14 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
 
   useEffect(() => {
     const fetchStates = async () => {
-      const { data, error } = await supabase
-        .from("states")
-        .select("id, name")
-        .eq("status", "active")
-        .order("name");
-
-      if (!error && data) {
-        setStates(data);
+      try {
+        const response = await api.get("/states");
+        setStates(response.data);
+      } catch (error) {
+        console.error("Error fetching states:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchStates();
@@ -61,15 +59,11 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
         return;
       }
 
-      const { data, error } = await supabase
-        .from("districts")
-        .select("id, name, state_id")
-        .eq("state_id", formData.testState)
-        .eq("status", "active")
-        .order("name");
-
-      if (!error && data) {
-        setDistricts(data);
+      try {
+        const response = await api.get(`/districts?stateId=${formData.testState}`);
+        setDistricts(response.data);
+      } catch (error) {
+        console.error("Error fetching districts:", error);
       }
     };
 
@@ -91,18 +85,20 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
 
       if (!district || !state) return;
 
-      const { data, error } = await supabase
-        .from("partners")
-        .select("id, name, address, partner_type")
-        .eq("state", state.name)
-        .eq("district", district.name)
-        .eq("status", "active");
+      try {
+        const response = await api.get(`/partners`, {
+          params: {
+            state: state.name,
+            district: district.name,
+            status: "active"
+          }
+        });
 
-      if (!error && data) {
-        setDrivingSchools(data.filter(p => p.partner_type === "driving_school"));
-        setMedicalLabs(data.filter(p => p.partner_type === "medical_lab"));
-        setVerificationAgents(data.filter(p => p.partner_type === "verification_agent"));
-      } else if (error) {
+        const data = response.data;
+        setDrivingSchools(data.filter((p: Partner) => p.partner_type === "driving_school"));
+        setMedicalLabs(data.filter((p: Partner) => p.partner_type === "medical_lab"));
+        setVerificationAgents(data.filter((p: Partner) => p.partner_type === "verification_agent"));
+      } catch (error) {
         console.error("Error fetching partners:", error);
       }
     };
@@ -204,17 +200,15 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
             {drivingSchools.map((school) => (
               <div
                 key={school.id}
-                className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                  formData.drivingSchoolId === school.id
+                className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${formData.drivingSchoolId === school.id
                     ? "border-primary bg-primary/5"
                     : "border-border hover:border-primary/50"
-                }`}
+                  }`}
                 onClick={() => updateFormData({ drivingSchoolId: school.id })}
               >
                 <div className="flex items-center gap-3">
-                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                    formData.drivingSchoolId === school.id ? "border-primary" : "border-muted-foreground"
-                  }`}>
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${formData.drivingSchoolId === school.id ? "border-primary" : "border-muted-foreground"
+                    }`}>
                     {formData.drivingSchoolId === school.id && (
                       <div className="w-2 h-2 rounded-full bg-primary" />
                     )}
@@ -266,17 +260,15 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
             {medicalLabs.map((lab) => (
               <div
                 key={lab.id}
-                className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                  formData.medicalLabId === lab.id
+                className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${formData.medicalLabId === lab.id
                     ? "border-primary bg-primary/5"
                     : "border-border hover:border-primary/50"
-                }`}
+                  }`}
                 onClick={() => updateFormData({ medicalLabId: lab.id })}
               >
                 <div className="flex items-center gap-3">
-                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                    formData.medicalLabId === lab.id ? "border-primary" : "border-muted-foreground"
-                  }`}>
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${formData.medicalLabId === lab.id ? "border-primary" : "border-muted-foreground"
+                    }`}>
                     {formData.medicalLabId === lab.id && (
                       <div className="w-2 h-2 rounded-full bg-primary" />
                     )}
@@ -328,17 +320,15 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
             {verificationAgents.map((agent) => (
               <div
                 key={agent.id}
-                className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                  formData.verificationAgentId === agent.id
+                className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${formData.verificationAgentId === agent.id
                     ? "border-primary bg-primary/5"
                     : "border-border hover:border-primary/50"
-                }`}
+                  }`}
                 onClick={() => updateFormData({ verificationAgentId: agent.id })}
               >
                 <div className="flex items-center gap-3">
-                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                    formData.verificationAgentId === agent.id ? "border-primary" : "border-muted-foreground"
-                  }`}>
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${formData.verificationAgentId === agent.id ? "border-primary" : "border-muted-foreground"
+                    }`}>
                     {formData.verificationAgentId === agent.id && (
                       <div className="w-2 h-2 rounded-full bg-primary" />
                     )}

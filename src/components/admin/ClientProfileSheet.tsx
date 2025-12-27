@@ -18,7 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Phone, MapPin, FileText, Award, Eye, Ban } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import api from "@/lib/api";
 import { toast } from "sonner";
 
 interface Driver {
@@ -81,14 +81,8 @@ const ClientProfileSheet = ({
     if (!driver) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("applications")
-        .select("*")
-        .eq("driver_id", driver.id)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setApplications((data as Application[]) || []);
+      const response = await api.get(`/admin/drivers/${driver.id}/applications`);
+      setApplications(response.data || []);
     } catch (error) {
       console.error("Error fetching applications:", error);
     } finally {
@@ -98,26 +92,21 @@ const ClientProfileSheet = ({
 
   const handleBlacklistDriver = async () => {
     if (!driver) return;
-    
-    const newStatus = driver.status === "blacklisted" ? "active" : "blacklisted";
-    
-    try {
-      const { error } = await supabase
-        .from("drivers")
-        .update({ status: newStatus })
-        .eq("id", driver.id);
 
-      if (error) throw error;
+    const newStatus = driver.status === "blacklisted" ? "active" : "blacklisted";
+
+    try {
+      await api.patch(`/admin/drivers/${driver.id}/status`, { status: newStatus });
 
       toast.success(
-        newStatus === "blacklisted" 
-          ? "Driver blacklisted successfully" 
+        newStatus === "blacklisted"
+          ? "Driver blacklisted successfully"
           : "Driver restored successfully"
       );
       onRefresh();
       onOpenChange(false);
     } catch (error: any) {
-      toast.error(error.message || "Failed to update driver status");
+      toast.error(error.response?.data?.message || "Failed to update driver status");
     }
   };
 
@@ -164,8 +153,8 @@ const ClientProfileSheet = ({
                   driver.status === "active"
                     ? "approved"
                     : driver.status === "blacklisted"
-                    ? "rejected"
-                    : "pending"
+                      ? "rejected"
+                      : "pending"
                 }
               >
                 {driver.status}
