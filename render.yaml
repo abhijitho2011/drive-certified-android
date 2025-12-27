@@ -5,21 +5,23 @@ services:
     buildCommand: npm install && npm run build
     startCommand: npx serve -s dist
     envVars:
-      - key: VITE_API_URL
+      - key: VITE_API_HOST
         fromService:
           name: drive-certified-backend
-          property: url
-      - key: VITE_WS_URL
+          type: web
+          property: host
+      - key: VITE_API_PORT
         fromService:
           name: drive-certified-backend
-          property: url
+          type: web
+          property: port
 
   - type: web
     name: drive-certified-backend
     runtime: node
+    rootDir: backend
     buildCommand: npm install && npm run build && npx prisma generate
     startCommand: npx prisma migrate deploy && npm run start:prod
-    rootDir: backend
     envVars:
       - key: NODE_VERSION
         value: "20"
@@ -27,10 +29,16 @@ services:
         fromDatabase:
           name: drive-certified-db
           property: connectionString
-      - key: FRONTEND_URL
+      - key: FRONTEND_HOST
         fromService:
           name: drive-certified-frontend
-          property: url
+          type: web
+          property: host
+      - key: FRONTEND_PORT
+        fromService:
+          name: drive-certified-frontend
+          type: web
+          property: port
       - key: JWT_SECRET
         generateValue: true
 
