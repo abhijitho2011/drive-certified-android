@@ -1,4 +1,20 @@
 services:
+  # Frontend Static Site
+  - type: static_site
+    name: drive-certified-frontend
+    runtime: static
+    buildCommand: npm install && npm run build
+    publishDir: dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          name: drive-certified-backend
+          property: url
+      - key: VITE_WS_URL
+        fromService:
+          name: drive-certified-backend
+          property: url
+
   # Backend Web Service
   - type: web
     name: drive-certified-backend
@@ -14,31 +30,12 @@ services:
           property: connectionString
       - key: FRONTEND_URL
         fromService:
-          type: static_site
           name: drive-certified-frontend
           property: url
       - key: JWT_SECRET
         generateValue: true
     rootDir: backend
 
-  # Frontend Static Site
-  - type: static_site
-    name: drive-certified-frontend
-    runtime: static
-    buildCommand: npm install && npm run build
-    publishDir: dist
-    envVars:
-      - key: VITE_API_URL
-        fromService:
-          type: web
-          name: drive-certified-backend
-          property: url
-      - key: VITE_WS_URL
-        fromService:
-          type: web
-          name: drive-certified-backend
-          property: url
-
 databases:
   - name: drive-certified-db
-    plan: free # Render Free Tier PostgreSQL
+    plan: free
