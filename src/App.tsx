@@ -17,6 +17,7 @@ import Employment from "./pages/driver/Employment";
 import JobRequests from "./pages/driver/JobRequests";
 import Experience from "./pages/driver/Experience";
 import Openings from "./pages/driver/Openings";
+import TestResults from "./pages/driver/TestResults";
 import DrivingSchoolDashboard from "./pages/driving-school/DrivingSchoolDashboard";
 import MedicalLabDashboard from "./pages/medical-lab/MedicalLabDashboard";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -54,6 +55,7 @@ const App = () => (
             <Route path="/driver/job-requests" element={<JobRequests />} />
             <Route path="/driver/experience" element={<Experience />} />
             <Route path="/driver/openings" element={<Openings />} />
+            <Route path="/driver/test-results" element={<TestResults />} />
             
             {/* Driving School Routes */}
             <Route path="/driving-school" element={<DrivingSchoolDashboard />} />
