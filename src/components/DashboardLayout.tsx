@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import motractLogo from "@/assets/motract-logo.jpg";
-import { LayoutDashboard, FileText, Upload, Award, Settings, LogOut, Menu, X, Bell, Briefcase } from "lucide-react";
+import { LayoutDashboard, FileText, Upload, Award, Settings, LogOut, Menu, X, Bell, Briefcase, ClipboardList } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,6 +22,10 @@ const roleConfig = {
       label: "My Applications",
       href: "/driver/applications",
       icon: FileText
+    }, {
+      label: "Test Results",
+      href: "/driver/test-results",
+      icon: ClipboardList
     }, {
       label: "Employment",
       href: "/driver/employment",

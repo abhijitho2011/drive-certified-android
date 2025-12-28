@@ -13,7 +13,8 @@ import {
   CheckCircle2, 
   AlertCircle,
   ArrowRight,
-  Car
+  Car,
+  ClipboardList
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -102,10 +103,10 @@ const DriverDashboard = () => {
       description: "Check your application details"
     },
     { 
-      icon: Upload, 
-      label: "Upload Documents", 
-      href: "/driver/documents",
-      description: "Add required documents"
+      icon: ClipboardList, 
+      label: "Test Results", 
+      href: "/driver/test-results",
+      description: "View driving & medical scores"
     },
     { 
       icon: Award, 
