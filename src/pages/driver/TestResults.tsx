@@ -15,15 +15,20 @@ import {
   XCircle, 
   Clock,
   Shield,
-  Eye,
-  Ear,
-  Heart,
-  Activity,
-  Gauge,
   AlertTriangle
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import ApplicationSelector from "@/components/driver/ApplicationSelector";
+
+interface Application {
+  id: string;
+  certificate_number: string | null;
+  status: string | null;
+  created_at: string | null;
+  certification_vehicle_class: string | null;
+  certification_purpose: string | null;
+}
 
 interface DrivingTestResult {
   id: string;
@@ -97,10 +102,13 @@ interface MedicalTestResult {
 const TestResults = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [driverData, setDriverData] = useState<{ first_name: string; last_name: string } | null>(null);
+  const [driverData, setDriverData] = useState<{ id: string; first_name: string; last_name: string } | null>(null);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [selectedApplicationId, setSelectedApplicationId] = useState<string | null>(null);
   const [drivingResult, setDrivingResult] = useState<DrivingTestResult | null>(null);
   const [medicalResult, setMedicalResult] = useState<MedicalTestResult | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingResults, setLoadingResults] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -115,33 +123,21 @@ const TestResults = () => {
       if (driver) {
         setDriverData(driver);
         
-        // Fetch most recent application with test results
-        const { data: app } = await supabase
+        // Fetch all applications
+        const { data: apps } = await supabase
           .from("applications")
-          .select("id")
+          .select("id, certificate_number, status, created_at, certification_vehicle_class, certification_purpose")
           .eq("driver_id", driver.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .order("created_at", { ascending: false });
         
-        if (app) {
-          // Fetch driving test results
-          const { data: drivingData } = await supabase
-            .from("driving_test_results")
-            .select("*")
-            .eq("application_id", app.id)
-            .maybeSingle();
+        if (apps && apps.length > 0) {
+          setApplications(apps);
           
-          if (drivingData) setDrivingResult(drivingData as DrivingTestResult);
-          
-          // Fetch medical test results
-          const { data: medicalData } = await supabase
-            .from("medical_test_results")
-            .select("*")
-            .eq("application_id", app.id)
-            .maybeSingle();
-          
-          if (medicalData) setMedicalResult(medicalData as MedicalTestResult);
+          // Auto-select if only one application
+          if (apps.length === 1) {
+            setSelectedApplicationId(apps[0].id);
+            await fetchTestResults(apps[0].id);
+          }
         }
       }
       setLoading(false);
@@ -149,6 +145,37 @@ const TestResults = () => {
 
     fetchData();
   }, [user]);
+
+  const fetchTestResults = async (applicationId: string) => {
+    setLoadingResults(true);
+    setDrivingResult(null);
+    setMedicalResult(null);
+    
+    // Fetch driving test results
+    const { data: drivingData } = await supabase
+      .from("driving_test_results")
+      .select("*")
+      .eq("application_id", applicationId)
+      .maybeSingle();
+    
+    if (drivingData) setDrivingResult(drivingData as DrivingTestResult);
+    
+    // Fetch medical test results
+    const { data: medicalData } = await supabase
+      .from("medical_test_results")
+      .select("*")
+      .eq("application_id", applicationId)
+      .maybeSingle();
+    
+    if (medicalData) setMedicalResult(medicalData as MedicalTestResult);
+    
+    setLoadingResults(false);
+  };
+
+  const handleSelectApplication = async (applicationId: string) => {
+    setSelectedApplicationId(applicationId);
+    await fetchTestResults(applicationId);
+  };
 
   const userName = driverData 
     ? `${driverData.first_name} ${driverData.last_name}` 
@@ -237,21 +264,70 @@ const TestResults = () => {
     );
   }
 
+  // Show application selector if multiple applications and none selected
+  if (applications.length > 1 && !selectedApplicationId) {
+    return (
+      <DashboardLayout role="driver" userName={userName}>
+        <div className="space-y-6">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold">Test Results</h1>
+              <p className="text-muted-foreground">Select an application to view test results</p>
+            </div>
+          </div>
+
+          <ApplicationSelector
+            applications={applications}
+            onSelect={handleSelectApplication}
+            title="Your Applications"
+            description="Click on an application to view its test results"
+          />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  const selectedApp = applications.find(a => a.id === selectedApplicationId);
+
   return (
     <DashboardLayout role="driver" userName={userName}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => {
+              if (applications.length > 1) {
+                setSelectedApplicationId(null);
+                setDrivingResult(null);
+                setMedicalResult(null);
+              } else {
+                navigate(-1);
+              }
+            }}
+          >
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
             <h1 className="text-2xl font-bold">Test Results</h1>
-            <p className="text-muted-foreground">View your detailed driving and medical test scores</p>
+            <p className="text-muted-foreground">
+              {selectedApp?.certificate_number 
+                ? `Certificate: ${selectedApp.certificate_number}` 
+                : `Application from ${new Date(selectedApp?.created_at || "").toLocaleDateString()}`}
+            </p>
           </div>
         </div>
 
-        {!drivingResult && !medicalResult ? (
+        {loadingResults ? (
+          <div className="space-y-4">
+            <Skeleton className="h-48 w-full" />
+            <Skeleton className="h-48 w-full" />
+          </div>
+        ) : !drivingResult && !medicalResult ? (
           <Card>
             <CardContent className="py-12 text-center">
               <AlertTriangle className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
@@ -425,10 +501,18 @@ const TestResults = () => {
                   {drivingResult.tested_by && (
                     <Card>
                       <CardContent className="py-4">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Evaluated by</span>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Examined by</span>
                           <span className="font-medium">{drivingResult.tested_by}</span>
                         </div>
+                        {drivingResult.submitted_at && (
+                          <div className="flex justify-between text-sm mt-2">
+                            <span className="text-muted-foreground">Submitted on</span>
+                            <span className="font-medium">
+                              {new Date(drivingResult.submitted_at).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   )}
@@ -457,30 +541,32 @@ const TestResults = () => {
                         <CardTitle>Fitness Status</CardTitle>
                         <Badge 
                           variant={
-                            medicalResult.fitness_status === "fit" 
+                            medicalResult.fitness_status?.toLowerCase() === "fit" 
                               ? "success" 
-                              : medicalResult.fitness_status === "unfit" 
-                                ? "destructive" 
+                              : medicalResult.fitness_status?.toLowerCase() === "unfit"
+                                ? "destructive"
                                 : "secondary"
                           }
-                          className="text-sm"
                         >
-                          {medicalResult.fitness_status?.toUpperCase() || "PENDING"}
+                          {medicalResult.fitness_status || "Pending"}
                         </Badge>
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid md:grid-cols-2 gap-6">
+                      <div className="grid md:grid-cols-3 gap-6">
                         <div className="text-center p-4 bg-muted/50 rounded-lg">
-                          <p className="text-sm text-muted-foreground mb-1">Validity Period</p>
-                          <p className="text-2xl font-bold">{medicalResult.fitness_validity_months ?? 12}</p>
-                          <p className="text-xs text-muted-foreground">months</p>
+                          <p className="text-sm text-muted-foreground mb-1">Health Screening</p>
+                          {getStatusBadge(medicalResult.health_screening_passed)}
                         </div>
                         <div className="text-center p-4 bg-muted/50 rounded-lg">
-                          <p className="text-sm text-muted-foreground mb-1">Test Date</p>
+                          <p className="text-sm text-muted-foreground mb-1">Drug Screening</p>
+                          {getStatusBadge(medicalResult.drug_screening_passed)}
+                        </div>
+                        <div className="text-center p-4 bg-muted/50 rounded-lg">
+                          <p className="text-sm text-muted-foreground mb-1">Validity</p>
                           <p className="text-lg font-medium">
-                            {medicalResult.test_date 
-                              ? new Date(medicalResult.test_date).toLocaleDateString()
+                            {medicalResult.fitness_validity_months 
+                              ? `${medicalResult.fitness_validity_months} months`
                               : "N/A"
                             }
                           </p>
@@ -489,21 +575,13 @@ const TestResults = () => {
                     </CardContent>
                   </Card>
 
-                  {/* Health Screening */}
+                  {/* Vital Signs */}
                   <Card>
                     <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle className="flex items-center gap-2">
-                            <Heart className="w-5 h-5" />
-                            Health Screening
-                          </CardTitle>
-                          <CardDescription>Physical health assessment results</CardDescription>
-                        </div>
-                        {getStatusBadge(medicalResult.health_screening_passed)}
-                      </div>
+                      <CardTitle>Vital Signs</CardTitle>
+                      <CardDescription>Blood pressure, heart rate, and BMI measurements</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-1">
+                    <CardContent>
                       <ResultItem 
                         label="Blood Pressure" 
                         value={medicalResult.blood_pressure_systolic && medicalResult.blood_pressure_diastolic 
@@ -513,14 +591,14 @@ const TestResults = () => {
                         status={medicalResult.blood_pressure_status}
                       />
                       <ResultItem 
-                        label="BMI" 
-                        value={medicalResult.bmi?.toFixed(1) || null}
-                        status={medicalResult.bmi_status}
-                      />
-                      <ResultItem 
                         label="Heart Rate" 
                         value={medicalResult.heart_rate ? `${medicalResult.heart_rate} bpm` : null}
                         status={medicalResult.heart_rate_status}
+                      />
+                      <ResultItem 
+                        label="BMI" 
+                        value={medicalResult.bmi ? medicalResult.bmi.toFixed(1) : null}
+                        status={medicalResult.bmi_status}
                       />
                     </CardContent>
                   </Card>
@@ -528,58 +606,36 @@ const TestResults = () => {
                   {/* Vision & Hearing */}
                   <Card>
                     <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Eye className="w-5 h-5" />
-                        Vision & Hearing
-                      </CardTitle>
+                      <CardTitle>Vision & Hearing</CardTitle>
+                      <CardDescription>Sensory function assessment</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-1">
+                    <CardContent>
+                      <ResultItem label="Left Eye Vision" value={medicalResult.vision_left} />
+                      <ResultItem label="Right Eye Vision" value={medicalResult.vision_right} />
+                      <ResultItem label="Vision Status" value={medicalResult.vision_status} />
                       <ResultItem 
-                        label="Left Eye Vision" 
-                        value={medicalResult.vision_left}
+                        label="Color Blindness" 
+                        value={medicalResult.color_blindness === null ? "Not tested" : medicalResult.color_blindness ? "Detected" : "Not detected"}
                       />
-                      <ResultItem 
-                        label="Right Eye Vision" 
-                        value={medicalResult.vision_right}
-                      />
-                      <ResultItem 
-                        label="Vision Status" 
-                        value={medicalResult.vision_status || "Pending"}
-                        status={medicalResult.vision_status}
-                      />
-                      <StatusItem 
-                        label="Color Blindness Test" 
-                        status={medicalResult.color_blindness === false}
-                        icon={Eye}
-                      />
-                      <ResultItem 
-                        label="Hearing Status" 
-                        value={medicalResult.hearing_status || "Pending"}
-                        status={medicalResult.hearing_status}
-                      />
+                      <ResultItem label="Hearing Status" value={medicalResult.hearing_status} />
                     </CardContent>
                   </Card>
 
                   {/* Alcohol Test */}
                   <Card>
                     <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Gauge className="w-5 h-5" />
-                        Alcohol Screening
-                      </CardTitle>
+                      <CardTitle>Alcohol Screening</CardTitle>
+                      <CardDescription>Blood alcohol content test</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-1">
-                      <ResultItem 
-                        label="Test Method" 
-                        value={medicalResult.alcohol_test_method}
-                      />
+                    <CardContent>
+                      <ResultItem label="Test Method" value={medicalResult.alcohol_test_method} />
                       <ResultItem 
                         label="Alcohol Level" 
                         value={medicalResult.alcohol_level !== null ? `${medicalResult.alcohol_level}%` : null}
                       />
                       <ResultItem 
                         label="Result" 
-                        value={medicalResult.alcohol_result || "Pending"}
+                        value={medicalResult.alcohol_result}
                         status={medicalResult.alcohol_result}
                       />
                     </CardContent>
@@ -590,46 +646,39 @@ const TestResults = () => {
                     <CardHeader>
                       <div className="flex items-center justify-between">
                         <div>
-                          <CardTitle className="flex items-center gap-2">
-                            <Activity className="w-5 h-5" />
-                            Drug Screening
-                          </CardTitle>
-                          <CardDescription>8-panel drug test results</CardDescription>
+                          <CardTitle>Drug Screening</CardTitle>
+                          <CardDescription>Multi-panel drug test results</CardDescription>
                         </div>
                         {getStatusBadge(medicalResult.drug_screening_passed)}
                       </div>
                     </CardHeader>
-                    <CardContent className="space-y-1">
-                      <ResultItem label="Cannabis" value={medicalResult.cannabis_result} status={medicalResult.cannabis_result} />
-                      <ResultItem label="Opioids" value={medicalResult.opioids_result} status={medicalResult.opioids_result} />
-                      <ResultItem label="Cocaine" value={medicalResult.cocaine_result} status={medicalResult.cocaine_result} />
-                      <ResultItem label="Amphetamines" value={medicalResult.amphetamines_result} status={medicalResult.amphetamines_result} />
-                      <ResultItem label="Methamphetamine" value={medicalResult.methamphetamine_result} status={medicalResult.methamphetamine_result} />
-                      <ResultItem label="MDMA" value={medicalResult.mdma_result} status={medicalResult.mdma_result} />
-                      <ResultItem label="Benzodiazepines" value={medicalResult.benzodiazepines_result} status={medicalResult.benzodiazepines_result} />
-                      <ResultItem label="Barbiturates" value={medicalResult.barbiturates_result} status={medicalResult.barbiturates_result} />
+                    <CardContent>
+                      <div className="grid md:grid-cols-2 gap-x-8">
+                        <ResultItem label="Cannabis" value={medicalResult.cannabis_result} status={medicalResult.cannabis_result} />
+                        <ResultItem label="Opioids" value={medicalResult.opioids_result} status={medicalResult.opioids_result} />
+                        <ResultItem label="Cocaine" value={medicalResult.cocaine_result} status={medicalResult.cocaine_result} />
+                        <ResultItem label="Amphetamines" value={medicalResult.amphetamines_result} status={medicalResult.amphetamines_result} />
+                        <ResultItem label="Methamphetamine" value={medicalResult.methamphetamine_result} status={medicalResult.methamphetamine_result} />
+                        <ResultItem label="MDMA" value={medicalResult.mdma_result} status={medicalResult.mdma_result} />
+                        <ResultItem label="Benzodiazepines" value={medicalResult.benzodiazepines_result} status={medicalResult.benzodiazepines_result} />
+                        <ResultItem label="Barbiturates" value={medicalResult.barbiturates_result} status={medicalResult.barbiturates_result} />
+                      </div>
+                      {medicalResult.drug_notes && (
+                        <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Notes: {medicalResult.drug_notes}</p>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
 
-                  {/* Notes */}
-                  {(medicalResult.health_notes || medicalResult.drug_notes) && (
+                  {/* Health Notes */}
+                  {medicalResult.health_notes && (
                     <Card>
                       <CardHeader>
-                        <CardTitle>Additional Notes</CardTitle>
+                        <CardTitle>Health Notes</CardTitle>
                       </CardHeader>
-                      <CardContent className="space-y-4">
-                        {medicalResult.health_notes && (
-                          <div>
-                            <p className="text-sm font-medium mb-1">Health Notes</p>
-                            <p className="text-sm text-muted-foreground">{medicalResult.health_notes}</p>
-                          </div>
-                        )}
-                        {medicalResult.drug_notes && (
-                          <div>
-                            <p className="text-sm font-medium mb-1">Drug Test Notes</p>
-                            <p className="text-sm text-muted-foreground">{medicalResult.drug_notes}</p>
-                          </div>
-                        )}
+                      <CardContent>
+                        <p className="text-sm text-muted-foreground">{medicalResult.health_notes}</p>
                       </CardContent>
                     </Card>
                   )}
@@ -638,10 +687,26 @@ const TestResults = () => {
                   {medicalResult.tested_by && (
                     <Card>
                       <CardContent className="py-4">
-                        <div className="flex items-center justify-between text-sm">
+                        <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">Examined by</span>
                           <span className="font-medium">{medicalResult.tested_by}</span>
                         </div>
+                        {medicalResult.test_date && (
+                          <div className="flex justify-between text-sm mt-2">
+                            <span className="text-muted-foreground">Test date</span>
+                            <span className="font-medium">
+                              {new Date(medicalResult.test_date).toLocaleDateString()}
+                            </span>
+                          </div>
+                        )}
+                        {medicalResult.submitted_at && (
+                          <div className="flex justify-between text-sm mt-2">
+                            <span className="text-muted-foreground">Submitted on</span>
+                            <span className="font-medium">
+                              {new Date(medicalResult.submitted_at).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   )}
