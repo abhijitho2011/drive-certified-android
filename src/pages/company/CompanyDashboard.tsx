@@ -3,13 +3,12 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Shield, Users, Briefcase, FileText } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import api from "@/lib/api";
+import { supabase } from "@/integrations/supabase/client";
 import VerificationTab from "@/components/company/VerificationTab";
 import RecruitTab from "@/components/company/RecruitTab";
 import EmployerEmployees from "@/components/company/EmployerEmployees";
 import AuditLogs from "@/components/company/AuditLogs";
 import CompanyStats from "@/components/company/CompanyStats";
-import { toast } from "sonner";
 
 interface DataUser {
   id: string;
@@ -26,12 +25,15 @@ const CompanyDashboard = () => {
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
-
-      try {
-        const response = await api.get(`/companies/user/${user.id}`);
-        setCompanyData(response.data);
-      } catch (error) {
-        console.error("Error fetching company data:", error);
+      
+      const { data: company } = await supabase
+        .from("data_users")
+        .select("id, company_name, contact_person, recruitment_access")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (company) {
+        setCompanyData(company);
       }
     };
 
@@ -49,21 +51,17 @@ const CompanyDashboard = () => {
   ) => {
     if (!companyData) return;
 
-    try {
-      await api.post("/verification-logs", {
-        data_user_id: companyData.id,
-        verified_by_name: companyData.contact_person,
-        search_type: searchType,
-        search_query: searchQuery,
-        application_id: applicationId,
-        certificate_number: certificateNumber,
-        driver_name: driverName,
-        result_status: resultStatus,
-        result_details: resultDetails || {}
-      });
-    } catch (error) {
-      console.error("Error logging verification:", error);
-    }
+    await supabase.from("verification_logs" as any).insert({
+      data_user_id: companyData.id,
+      verified_by_name: companyData.contact_person,
+      search_type: searchType,
+      search_query: searchQuery,
+      application_id: applicationId,
+      certificate_number: certificateNumber,
+      driver_name: driverName,
+      result_status: resultStatus,
+      result_details: resultDetails || {}
+    } as any);
   };
 
   const handleSingleVerification = async (result: any, query: string) => {
@@ -92,11 +90,9 @@ const CompanyDashboard = () => {
       result_details: r
     }));
 
-    try {
-      await api.post("/verification-logs/bulk", { logs });
-    } catch (error) {
-      console.error("Error logging bulk verification:", error);
-      toast.error("Failed to save verification logs");
+    const batchSize = 50;
+    for (let i = 0; i < logs.length; i += batchSize) {
+      await supabase.from("verification_logs" as any).insert(logs.slice(i, i + batchSize) as any);
     }
   };
 

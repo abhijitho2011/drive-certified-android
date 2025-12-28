@@ -32,7 +32,7 @@ import {
   GraduationCap,
   Stethoscope,
 } from "lucide-react";
-import api from "@/lib/api";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface Application {
@@ -91,12 +91,18 @@ const ApplicationDetailSheet = ({
 
   const handleRejectApplication = async () => {
     if (!application) return;
-
+    
     setLoading(true);
     try {
-      await api.post(`/admin/applications/${application.id}/reject`, {
-        reason: rejectReason || "Application rejected by admin",
-      });
+      const { error } = await supabase
+        .from("applications")
+        .update({
+          status: "rejected",
+          notes: rejectReason || "Application rejected by admin",
+        })
+        .eq("id", application.id);
+
+      if (error) throw error;
 
       toast.success("Application rejected successfully");
       setIsRejectDialogOpen(false);
@@ -104,7 +110,7 @@ const ApplicationDetailSheet = ({
       onRefresh();
       onOpenChange(false);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to reject application");
+      toast.error(error.message || "Failed to reject application");
     } finally {
       setLoading(false);
     }
@@ -126,13 +132,38 @@ const ApplicationDetailSheet = ({
 
     setLoading(true);
     try {
-      await api.post(`/admin/applications/${application.id}/approve`);
+      const certificateNumber = `MOT-${Date.now().toString(36).toUpperCase()}`;
+      
+      // Calculate expiry date: 1 year from now OR licence expiry (whichever is earlier)
+      const oneYearFromNow = new Date();
+      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+      
+      let expiryDate = oneYearFromNow;
+      if (application.licence_expiry_date) {
+        const licenceExpiry = new Date(application.licence_expiry_date);
+        if (licenceExpiry < oneYearFromNow) {
+          expiryDate = licenceExpiry;
+        }
+      }
+      
+      const { error } = await supabase
+        .from("applications")
+        .update({
+          status: "approved",
+          admin_approved: true,
+          certificate_number: certificateNumber,
+          certificate_expiry_date: expiryDate.toISOString().split('T')[0],
+          certificate_status: "active",
+        })
+        .eq("id", application.id);
+
+      if (error) throw error;
 
       toast.success("Application approved! Certificate issued.");
       onRefresh();
       onOpenChange(false);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to approve application");
+      toast.error(error.message || "Failed to approve application");
     } finally {
       setLoading(false);
     }
@@ -153,13 +184,18 @@ const ApplicationDetailSheet = ({
 
   const openDocument = async (docPath: string) => {
     try {
-      // The backend should return a signed URL or redirect to the file
-      const response = await api.get(`/applications/documents/${encodeURIComponent(docPath)}`);
+      const { data, error } = await supabase.storage
+        .from("application-documents")
+        .createSignedUrl(docPath, 3600); // 1 hour expiry
 
-      if (response.data?.url) {
-        window.open(response.data.url, "_blank");
-      } else {
-        toast.error("Failed to get document URL");
+      if (error) {
+        console.error("Error creating signed URL:", error);
+        toast.error("Failed to open document");
+        return;
+      }
+
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, "_blank");
       }
     } catch (error) {
       console.error("Error opening document:", error);

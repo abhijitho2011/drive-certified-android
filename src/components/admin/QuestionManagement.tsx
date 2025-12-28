@@ -85,15 +85,13 @@ const QuestionManagement = () => {
 
   const fetchQuestions = async () => {
     setLoading(true);
-    try {
-      const response = await api.get("/admin/questions");
-      setQuestions(response.data || []);
-    } catch (error) {
-      console.error("Error fetching questions:", error);
-      toast.error("Failed to fetch questions");
-    } finally {
-      setLoading(false);
-    }
+    const { data, error } = await supabase
+      .from("traffic_law_questions")
+      .select("*")
+      .order("created_at", { ascending: false });
+    
+    if (data) setQuestions(data);
+    setLoading(false);
   };
 
   const resetForm = () => {
@@ -116,7 +114,7 @@ const QuestionManagement = () => {
     }
 
     try {
-      await api.post("/admin/questions", {
+      const { error } = await supabase.from("traffic_law_questions").insert({
         question: form.question,
         option_a: form.option_a,
         option_b: form.option_b,
@@ -127,12 +125,14 @@ const QuestionManagement = () => {
         is_hazardous_only: form.is_hazardous_only,
       });
 
+      if (error) throw error;
+
       toast.success("Question added successfully");
       setIsAddOpen(false);
       resetForm();
       fetchQuestions();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to add question");
+      toast.error(error.message || "Failed to add question");
     }
   };
 
@@ -160,23 +160,28 @@ const QuestionManagement = () => {
     }
 
     try {
-      await api.patch(`/admin/questions/${selectedQuestion.id}`, {
-        question: form.question,
-        option_a: form.option_a,
-        option_b: form.option_b,
-        option_c: form.option_c,
-        option_d: form.option_d,
-        correct_answer: form.correct_answer,
-        category: form.category,
-        is_hazardous_only: form.is_hazardous_only,
-      });
+      const { error } = await supabase
+        .from("traffic_law_questions")
+        .update({
+          question: form.question,
+          option_a: form.option_a,
+          option_b: form.option_b,
+          option_c: form.option_c,
+          option_d: form.option_d,
+          correct_answer: form.correct_answer,
+          category: form.category,
+          is_hazardous_only: form.is_hazardous_only,
+        })
+        .eq("id", selectedQuestion.id);
+
+      if (error) throw error;
 
       toast.success("Question updated successfully");
       setIsEditOpen(false);
       resetForm();
       fetchQuestions();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to update question");
+      toast.error(error.message || "Failed to update question");
     }
   };
 
@@ -184,14 +189,19 @@ const QuestionManagement = () => {
     if (!selectedQuestion) return;
 
     try {
-      await api.delete(`/admin/questions/${selectedQuestion.id}`);
+      const { error } = await supabase
+        .from("traffic_law_questions")
+        .delete()
+        .eq("id", selectedQuestion.id);
+
+      if (error) throw error;
 
       toast.success("Question deleted successfully");
       setIsDeleteOpen(false);
       setSelectedQuestion(null);
       fetchQuestions();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to delete question");
+      toast.error(error.message || "Failed to delete question");
     }
   };
 
@@ -199,16 +209,19 @@ const QuestionManagement = () => {
     if (selectedIds.size === 0) return;
 
     try {
-      await api.post("/admin/questions/bulk-delete", {
-        ids: Array.from(selectedIds)
-      });
+      const { error } = await supabase
+        .from("traffic_law_questions")
+        .delete()
+        .in("id", Array.from(selectedIds));
+
+      if (error) throw error;
 
       toast.success(`${selectedIds.size} questions deleted successfully`);
       setIsBulkDeleteOpen(false);
       setSelectedIds(new Set());
       fetchQuestions();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to delete questions");
+      toast.error(error.message || "Failed to delete questions");
     }
   };
 
@@ -234,12 +247,17 @@ const QuestionManagement = () => {
     const newStatus = question.status === "active" ? "inactive" : "active";
     
     try {
-      await api.patch(`/admin/questions/${question.id}/status`, { status: newStatus });
+      const { error } = await supabase
+        .from("traffic_law_questions")
+        .update({ status: newStatus })
+        .eq("id", question.id);
+
+      if (error) throw error;
 
       toast.success(`Question ${newStatus === "active" ? "activated" : "deactivated"}`);
       fetchQuestions();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to update status");
+      toast.error(error.message || "Failed to update status");
     }
   };
 
@@ -303,12 +321,13 @@ const QuestionManagement = () => {
         return;
       }
 
-      await api.post("/admin/questions/bulk-upload", { questions: questionsToInsert });
+      const { error } = await supabase.from("traffic_law_questions").insert(questionsToInsert);
+      if (error) throw error;
 
       toast.success(`${questionsToInsert.length} questions uploaded successfully`);
       fetchQuestions();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to upload Excel file");
+      toast.error(error.message || "Failed to upload Excel file");
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";

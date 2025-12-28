@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { ApplicationFormData } from "@/pages/driver/ApplicationForm";
 import { useState, useEffect } from "react";
-import api from "@/lib/api";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
   formData: ApplicationFormData;
@@ -31,12 +31,12 @@ const BasicDetailsSection = ({ formData, updateFormData }: Props) => {
 
   useEffect(() => {
     const fetchStates = async () => {
-      try {
-        const response = await api.get("/states");
-        setStates(response.data);
-      } catch (error) {
-        console.error("Error fetching states:", error);
-      }
+      const { data } = await supabase
+        .from("states")
+        .select("id, name")
+        .eq("status", "active")
+        .order("name");
+      if (data) setStates(data);
     };
     fetchStates();
   }, []);
@@ -47,12 +47,13 @@ const BasicDetailsSection = ({ formData, updateFormData }: Props) => {
         setCurrentDistricts([]);
         return;
       }
-      try {
-        const response = await api.get(`/districts?stateId=${formData.currentState}`);
-        setCurrentDistricts(response.data);
-      } catch (error) {
-        console.error("Error fetching current districts:", error);
-      }
+      const { data } = await supabase
+        .from("districts")
+        .select("id, name, state_id")
+        .eq("state_id", formData.currentState)
+        .eq("status", "active")
+        .order("name");
+      if (data) setCurrentDistricts(data);
     };
     fetchCurrentDistricts();
   }, [formData.currentState]);
@@ -63,12 +64,13 @@ const BasicDetailsSection = ({ formData, updateFormData }: Props) => {
         setPermanentDistricts([]);
         return;
       }
-      try {
-        const response = await api.get(`/districts?stateId=${formData.permanentState}`);
-        setPermanentDistricts(response.data);
-      } catch (error) {
-        console.error("Error fetching permanent districts:", error);
-      }
+      const { data } = await supabase
+        .from("districts")
+        .select("id, name, state_id")
+        .eq("state_id", formData.permanentState)
+        .eq("status", "active")
+        .order("name");
+      if (data) setPermanentDistricts(data);
     };
     fetchPermanentDistricts();
   }, [formData.permanentState]);
@@ -149,7 +151,7 @@ const BasicDetailsSection = ({ formData, updateFormData }: Props) => {
       {/* Current Address Section */}
       <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
         <h3 className="font-semibold text-foreground">Current Address</h3>
-
+        
         <div className="space-y-2">
           <Label htmlFor="currentAddress">Street Address *</Label>
           <Textarea
@@ -250,7 +252,7 @@ const BasicDetailsSection = ({ formData, updateFormData }: Props) => {
       {!sameAddress && (
         <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
           <h3 className="font-semibold text-foreground">Permanent Address</h3>
-
+          
           <div className="space-y-2">
             <Label htmlFor="permanentAddress">Street Address</Label>
             <Textarea

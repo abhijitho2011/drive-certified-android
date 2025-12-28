@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Briefcase, MapPin, Clock, IndianRupee, Send, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
-import api from "@/lib/api";
 
 interface JobPosting {
   id: string;
@@ -42,87 +42,90 @@ const Openings = () => {
     const fetchData = async () => {
       if (!user) return;
 
-      try {
-        // Get driver data
-        const driverRes = await api.get(`/drivers/user/${user.id}`);
-        const driver = driverRes.data;
+      // Get driver data
+      const { data: driver } = await supabase
+        .from("drivers")
+        .select("id, first_name, last_name")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-        if (!driver) {
-          setLoading(false);
-          return;
-        }
-
-        setDriverData(driver);
-
-        // Get driver's certificates
-        let certs: any[] = [];
-        try {
-          const appsRes = await api.get(`/applications/driver/${driver.id}`);
-          certs = appsRes.data.filter((app: any) =>
-            app.status === "approved" &&
-            app.admin_approved === true &&
-            app.certificate_number
-          );
-        } catch (e) {
-          console.error("Error fetching certificates", e);
-        }
-
-        // Get existing applications from driver
-        const appliedSet = new Set<string>();
-        try {
-          const jobRequestsRes = await api.get(`/drivers/${driver.id}/job-requests`);
-          const existingApps = jobRequestsRes.data;
-
-          (existingApps || []).forEach((a: any) => {
-            appliedSet.add(`${a.employer_id}-${a.job_title}`);
-          });
-          setAppliedJobs(appliedSet);
-        } catch (e) {
-          console.error("Error fetching job requests", e);
-        }
-
-        // Get all active job postings
-        try {
-          const postingsRes = await api.get('/job-postings');
-          const postings = postingsRes.data;
-
-          // Filter postings based on driver's qualifications
-          const driverVehicleClasses = [...new Set((certs || []).flatMap((c: any) => c.vehicle_classes || []))];
-          const driverSkillGrades = (certs || []).map((c: any) => c.skill_grade).filter(Boolean);
-
-          const matchingPostings = (postings || []).filter((posting: any) => {
-            // Check vehicle class requirement
-            if (posting.vehicle_class_required?.length > 0) {
-              const hasMatchingClass = posting.vehicle_class_required.some((vc: string) =>
-                driverVehicleClasses.includes(vc)
-              );
-              if (!hasMatchingClass) return false;
-            }
-
-            // Check skill grade requirement
-            if (posting.skill_grade_required?.length > 0) {
-              const hasMatchingGrade = posting.skill_grade_required.some((g: string) =>
-                driverSkillGrades.includes(g)
-              );
-              if (!hasMatchingGrade) return false;
-            }
-
-            return true;
-          });
-
-          setOpenings(matchingPostings.map((p: any) => ({
-            ...p,
-            employer: p.employer || { company_name: "Unknown" },
-            applied: appliedSet.has(`${p.employer_id}-${p.title}`)
-          })));
-        } catch (e) {
-          console.error("Error fetching job postings", e);
-        }
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      } finally {
+      if (!driver) {
         setLoading(false);
+        return;
       }
+
+      setDriverData(driver);
+
+      // Get driver's certificates
+      const { data: certs } = await supabase
+        .from("applications")
+        .select("vehicle_classes, skill_grade")
+        .eq("driver_id", driver.id)
+        .eq("status", "approved")
+        .eq("admin_approved", true)
+        .not("certificate_number", "is", null);
+
+      // Get existing applications from driver
+      const { data: existingApps } = await supabase
+        .from("job_requests")
+        .select("job_title, employer_id")
+        .eq("driver_id", driver.id);
+
+      const appliedSet = new Set(
+        (existingApps || []).map((a) => `${a.employer_id}-${a.job_title}`)
+      );
+      setAppliedJobs(appliedSet);
+
+      // Get all active job postings
+      const { data: postings, error } = await supabase
+        .from("job_postings")
+        .select(`
+          *,
+          data_users!inner(
+            company_name,
+            district,
+            state
+          )
+        `)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching openings:", error);
+        setLoading(false);
+        return;
+      }
+
+      // Filter postings based on driver's qualifications
+      const driverVehicleClasses = [...new Set((certs || []).flatMap((c: any) => c.vehicle_classes || []))];
+      const driverSkillGrades = (certs || []).map((c: any) => c.skill_grade).filter(Boolean);
+
+      const matchingPostings = (postings || []).filter((posting: any) => {
+        // Check vehicle class requirement
+        if (posting.vehicle_class_required?.length > 0) {
+          const hasMatchingClass = posting.vehicle_class_required.some((vc: string) => 
+            driverVehicleClasses.includes(vc)
+          );
+          if (!hasMatchingClass) return false;
+        }
+
+        // Check skill grade requirement
+        if (posting.skill_grade_required?.length > 0) {
+          const hasMatchingGrade = posting.skill_grade_required.some((g: string) => 
+            driverSkillGrades.includes(g)
+          );
+          if (!hasMatchingGrade) return false;
+        }
+
+        return true;
+      });
+
+      setOpenings(matchingPostings.map((p: any) => ({
+        ...p,
+        employer: p.data_users,
+        applied: appliedSet.has(`${p.employer_id}-${p.title}`)
+      })));
+      setLoading(false);
     };
 
     fetchData();
@@ -135,26 +138,30 @@ const Openings = () => {
 
     try {
       // Create a job request from driver side
-      await api.post('/job-requests', {
-        driver_id: driverData.id,
-        employer_id: posting.employer_id,
-        job_title: posting.title,
-        job_description: posting.description,
-        vehicle_class_required: posting.vehicle_class_required?.[0] || null,
-        location: posting.location,
-        salary_offered: posting.salary_min,
-        work_type: posting.work_type,
-        status: "applied" // Driver applied, employer needs to respond
-      });
+      const { error } = await supabase
+        .from("job_requests")
+        .insert({
+          driver_id: driverData.id,
+          employer_id: posting.employer_id,
+          job_title: posting.title,
+          job_description: posting.description,
+          vehicle_class_required: posting.vehicle_class_required?.[0] || null,
+          location: posting.location,
+          salary_offered: posting.salary_min,
+          work_type: posting.work_type,
+          status: "applied" // Driver applied, employer needs to respond
+        });
+
+      if (error) throw error;
 
       toast.success("Application submitted successfully!");
-
+      
       // Update local state
       setAppliedJobs(prev => new Set([...prev, `${posting.employer_id}-${posting.title}`]));
-      setOpenings(prev => prev.map(p =>
+      setOpenings(prev => prev.map(p => 
         p.id === posting.id ? { ...p, applied: true } : p
       ));
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error applying:", error);
       toast.error("Failed to submit application");
     } finally {
@@ -260,8 +267,8 @@ const Openings = () => {
                       Applied
                     </Button>
                   ) : (
-                    <Button
-                      className="w-full"
+                    <Button 
+                      className="w-full" 
                       onClick={() => applyToJob(posting)}
                       disabled={applying === posting.id}
                     >

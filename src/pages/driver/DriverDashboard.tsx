@@ -5,69 +5,62 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
-import {
-  FileText,
-  Upload,
-  Award,
-  Clock,
-  CheckCircle2,
+import { 
+  FileText, 
+  Upload, 
+  Award, 
+  Clock, 
+  CheckCircle2, 
   AlertCircle,
   ArrowRight,
   Car
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import api from "@/lib/api";
-
-interface Application {
-  id: string;
-  status: string;
-  certificate_number: string | null;
-  driving_test_passed: boolean | null;
-  medical_test_passed: boolean | null;
-  admin_approved: boolean | null;
-  identity_verified: boolean | null;
-  education_verified: boolean | null;
-}
+import { supabase } from "@/integrations/supabase/client";
 
 const DriverDashboard = () => {
   const { user } = useAuth();
   const [driverData, setDriverData] = useState<{ first_name: string; last_name: string } | null>(null);
-  const [application, setApplication] = useState<Application | null>(null);
+  const [application, setApplication] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
-
-      try {
-        // Fetch driver data
-        // Assuming we have an endpoint for this or getting it from user profile
-        // For now, let's assume we can get driver details from an endpoint
-        const driverRes = await api.get(`/drivers/user/${user.id}`);
-        const driver = driverRes.data;
-
-        if (driver) {
-          setDriverData(driver);
-
-          // Fetch most recent pending or in-progress application
-          // This endpoint needs to be implemented in NestJS
-          const appRes = await api.get(`/applications/driver/${driver.id}/latest`);
-          setApplication(appRes.data);
-        }
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-      } finally {
-        setLoading(false);
+      
+      // Fetch driver data
+      const { data: driver } = await supabase
+        .from("drivers")
+        .select("id, first_name, last_name")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (driver) {
+        setDriverData(driver);
+        
+        // Fetch most recent pending or in-progress application
+        const { data: app } = await supabase
+          .from("applications")
+          .select("*")
+          .eq("driver_id", driver.id)
+          .in("status", ["pending", "approved"])
+          .is("certificate_number", null)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        setApplication(app);
       }
+      setLoading(false);
     };
 
     fetchData();
   }, [user]);
 
-  const userName = driverData
-    ? `${driverData.first_name} ${driverData.last_name}`
-    : user?.email // Fallback to email if name not available in user object yet
-      ? user.email
+  const userName = driverData 
+    ? `${driverData.first_name} ${driverData.last_name}` 
+    : user?.user_metadata?.first_name 
+      ? `${user.user_metadata.first_name} ${user.user_metadata.last_name || ''}`
       : "Driver";
 
   // Calculate progress based on application status
@@ -102,27 +95,27 @@ const DriverDashboard = () => {
   const { progress, steps: statusSteps } = getProgressAndSteps();
 
   const quickActions = [
-    {
-      icon: FileText,
-      label: "View Application",
+    { 
+      icon: FileText, 
+      label: "View Application", 
       href: "/driver/application",
       description: "Check your application details"
     },
-    {
-      icon: Upload,
-      label: "Upload Documents",
+    { 
+      icon: Upload, 
+      label: "Upload Documents", 
       href: "/driver/documents",
       description: "Add required documents"
     },
-    {
-      icon: Award,
-      label: "My Certificates",
+    { 
+      icon: Award, 
+      label: "My Certificates", 
       href: "/driver/certificates",
       description: "View issued certificates"
     },
-    {
-      icon: Car,
-      label: "New Application",
+    { 
+      icon: Car, 
+      label: "New Application", 
       href: "/driver/apply",
       description: "Apply for a new category"
     },
@@ -141,7 +134,7 @@ const DriverDashboard = () => {
         {/* Welcome Section */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">Welcome, {driverData?.first_name || "Driver"}!</h1>
+            <h1 className="text-2xl font-bold">Welcome, {driverData?.first_name || user?.user_metadata?.first_name || "Driver"}!</h1>
             <p className="text-muted-foreground">Track your certification progress and manage your documents.</p>
           </div>
           <Link to={application ? "/driver/application" : "/driver/apply"}>
@@ -180,12 +173,13 @@ const DriverDashboard = () => {
                 <div key={index} className="flex-1 flex items-center">
                   <div className="flex items-center gap-2 md:flex-col md:items-center md:text-center flex-1">
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${step.completed
-                        ? "bg-success text-success-foreground"
-                        : step.current
+                      className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        step.completed
+                          ? "bg-success text-success-foreground"
+                          : step.current
                           ? "bg-primary text-primary-foreground animate-pulse"
                           : "bg-muted text-muted-foreground"
-                        }`}
+                      }`}
                     >
                       {step.completed ? (
                         <CheckCircle2 className="w-4 h-4" />

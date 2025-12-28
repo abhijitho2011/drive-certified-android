@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import api from "@/lib/api";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Heart,
   Droplets,
@@ -65,12 +65,12 @@ interface TestResults {
   color_blindness: boolean;
   hearing_status: string;
   health_notes: string;
-
+  
   // Alcohol Screening
   alcohol_test_method: string;
   alcohol_result: string;
   alcohol_level: number | null;
-
+  
   // Drug Screening
   drug_test_date: string;
   cannabis_result: string;
@@ -82,7 +82,7 @@ interface TestResults {
   benzodiazepines_result: string;
   barbiturates_result: string;
   drug_notes: string;
-
+  
   // Overall
   fitness_status: string;
   fitness_validity_months: number;
@@ -93,7 +93,7 @@ const MedicalTestSheet = ({ open, onOpenChange, application, partnerId, onComple
   const [activeTab, setActiveTab] = useState("health");
   const [existingResults, setExistingResults] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
-
+  
   const [results, setResults] = useState<TestResults>({
     blood_pressure_systolic: null,
     blood_pressure_diastolic: null,
@@ -134,63 +134,62 @@ const MedicalTestSheet = ({ open, onOpenChange, application, partnerId, onComple
 
   const fetchExistingResults = async () => {
     if (!application) return;
-
-    try {
-      const response = await api.get(`/medical-test/results/${application.id}`);
-      const data = response.data;
-
-      if (data) {
-        setExistingResults(data);
-        // Always populate state so completed/submitted tests are readable.
-        // Inputs will be disabled when `submitted_at` is set.
-        setResults({
-          blood_pressure_systolic: data.blood_pressure_systolic,
-          blood_pressure_diastolic: data.blood_pressure_diastolic,
-          blood_pressure_status: data.blood_pressure_status || "",
-          bmi: data.bmi,
-          bmi_status: data.bmi_status || "",
-          heart_rate: data.heart_rate,
-          heart_rate_status: data.heart_rate_status || "",
-          vision_left: data.vision_left || "",
-          vision_right: data.vision_right || "",
-          vision_status: data.vision_status || "",
-          color_blindness: data.color_blindness || false,
-          hearing_status: data.hearing_status || "",
-          health_notes: data.health_notes || "",
-          alcohol_test_method: data.alcohol_test_method || "",
-          alcohol_result: data.alcohol_result || "",
-          alcohol_level: data.alcohol_level,
-          drug_test_date: data.drug_test_date || new Date().toISOString().split("T")[0],
-          cannabis_result: data.cannabis_result || "pending",
-          opioids_result: data.opioids_result || "pending",
-          cocaine_result: data.cocaine_result || "pending",
-          amphetamines_result: data.amphetamines_result || "pending",
-          methamphetamine_result: data.methamphetamine_result || "pending",
-          mdma_result: data.mdma_result || "pending",
-          benzodiazepines_result: data.benzodiazepines_result || "pending",
-          barbiturates_result: data.barbiturates_result || "pending",
-          drug_notes: data.drug_notes || "",
-          fitness_status: data.fitness_status || "pending",
-          fitness_validity_months: data.fitness_validity_months || 12,
-          tested_by: data.tested_by || "",
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching medical results:", error);
+    
+    const { data } = await supabase
+      .from("medical_test_results")
+      .select("*")
+      .eq("application_id", application.id)
+      .maybeSingle();
+    
+    if (data) {
+      setExistingResults(data);
+      // Always populate state so completed/submitted tests are readable.
+      // Inputs will be disabled when `submitted_at` is set.
+      setResults({
+        blood_pressure_systolic: data.blood_pressure_systolic,
+        blood_pressure_diastolic: data.blood_pressure_diastolic,
+        blood_pressure_status: data.blood_pressure_status || "",
+        bmi: data.bmi,
+        bmi_status: data.bmi_status || "",
+        heart_rate: data.heart_rate,
+        heart_rate_status: data.heart_rate_status || "",
+        vision_left: data.vision_left || "",
+        vision_right: data.vision_right || "",
+        vision_status: data.vision_status || "",
+        color_blindness: data.color_blindness || false,
+        hearing_status: data.hearing_status || "",
+        health_notes: data.health_notes || "",
+        alcohol_test_method: data.alcohol_test_method || "",
+        alcohol_result: data.alcohol_result || "",
+        alcohol_level: data.alcohol_level,
+        drug_test_date: data.drug_test_date || new Date().toISOString().split("T")[0],
+        cannabis_result: data.cannabis_result || "pending",
+        opioids_result: data.opioids_result || "pending",
+        cocaine_result: data.cocaine_result || "pending",
+        amphetamines_result: data.amphetamines_result || "pending",
+        methamphetamine_result: data.methamphetamine_result || "pending",
+        mdma_result: data.mdma_result || "pending",
+        benzodiazepines_result: data.benzodiazepines_result || "pending",
+        barbiturates_result: data.barbiturates_result || "pending",
+        drug_notes: data.drug_notes || "",
+        fitness_status: data.fitness_status || "pending",
+        fitness_validity_months: data.fitness_validity_months || 12,
+        tested_by: data.tested_by || "",
+      });
     }
   };
 
-  const isHealthPassed =
-    results.blood_pressure_status &&
+  const isHealthPassed = 
+    results.blood_pressure_status && 
     results.blood_pressure_status !== "critical" &&
-    results.vision_status &&
+    results.vision_status && 
     results.vision_status !== "failed" &&
-    results.hearing_status &&
+    results.hearing_status && 
     results.hearing_status !== "severe_loss";
 
   const isAlcoholClean = results.alcohol_result === "negative";
-
-  const isDrugClean =
+  
+  const isDrugClean = 
     results.cannabis_result === "negative" &&
     results.opioids_result === "negative" &&
     results.cocaine_result === "negative" &&
@@ -200,7 +199,7 @@ const MedicalTestSheet = ({ open, onOpenChange, application, partnerId, onComple
     results.benzodiazepines_result === "negative" &&
     results.barbiturates_result === "negative";
 
-  const hasDrugPositive =
+  const hasDrugPositive = 
     results.cannabis_result === "positive" ||
     results.opioids_result === "positive" ||
     results.cocaine_result === "positive" ||
@@ -220,7 +219,7 @@ const MedicalTestSheet = ({ open, onOpenChange, application, partnerId, onComple
     try {
       const healthPassed = isHealthPassed;
       const drugPassed = isDrugClean;
-
+      
       let fitnessStatus = results.fitness_status;
       if (submit) {
         if (!healthPassed || hasDrugPositive || results.alcohol_result === "positive") {
@@ -270,19 +269,29 @@ const MedicalTestSheet = ({ open, onOpenChange, application, partnerId, onComple
       };
 
       if (existingResults) {
-        await api.patch(`/medical-test/results/${existingResults.id}`, testData);
+        const { error } = await supabase
+          .from("medical_test_results")
+          .update(testData)
+          .eq("id", existingResults.id);
+        if (error) throw error;
       } else {
-        await api.post("/medical-test/results", testData);
+        const { error } = await supabase
+          .from("medical_test_results")
+          .insert(testData);
+        if (error) throw error;
       }
 
-      // Update application status via API if submitting
+      // Update application status
       if (submit) {
-        await api.patch(`/applications/${application.id}/status`, {
-          medical_test_passed: fitnessStatus === "fit" || fitnessStatus === "conditionally_fit",
-          status: fitnessStatus === "fit" || fitnessStatus === "conditionally_fit"
-            ? "medical_test_completed"
-            : "medical_test_failed",
-        });
+        await supabase
+          .from("applications")
+          .update({
+            medical_test_passed: fitnessStatus === "fit" || fitnessStatus === "conditionally_fit",
+            status: fitnessStatus === "fit" || fitnessStatus === "conditionally_fit" 
+              ? "medical_test_completed" 
+              : "medical_test_failed",
+          })
+          .eq("id", application.id);
       }
 
       toast.success(submit ? "Medical report submitted" : "Progress saved");
@@ -291,7 +300,7 @@ const MedicalTestSheet = ({ open, onOpenChange, application, partnerId, onComple
         onOpenChange(false);
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to save results");
+      toast.error(error.message || "Failed to save results");
     } finally {
       setSubmitting(false);
     }
@@ -539,9 +548,9 @@ const MedicalTestSheet = ({ open, onOpenChange, application, partnerId, onComple
                   </div>
                   <div className="space-y-2">
                     <Label>Color Blindness</Label>
-                    <Select
-                      value={results.color_blindness ? "yes" : "no"}
-                      onValueChange={(v) => setResults({ ...results, color_blindness: v === "yes" })}
+                    <Select 
+                      value={results.color_blindness ? "yes" : "no"} 
+                      onValueChange={(v) => setResults({ ...results, color_blindness: v === "yes" })} 
                       disabled={isSubmitted}
                     >
                       <SelectTrigger>
@@ -626,9 +635,9 @@ const MedicalTestSheet = ({ open, onOpenChange, application, partnerId, onComple
                       <AlertTriangle className="w-5 h-5 text-muted-foreground" />
                     )}
                     <span className="font-medium">
-                      {isAlcoholClean ? "Alcohol Screening: NEGATIVE" :
-                        results.alcohol_result === "positive" ? "Alcohol Screening: POSITIVE - Certification Denied" :
-                          "Alcohol Screening: Pending"}
+                      {isAlcoholClean ? "Alcohol Screening: NEGATIVE" : 
+                       results.alcohol_result === "positive" ? "Alcohol Screening: POSITIVE - Certification Denied" :
+                       "Alcohol Screening: Pending"}
                     </span>
                   </div>
                 </div>
@@ -655,45 +664,45 @@ const MedicalTestSheet = ({ open, onOpenChange, application, partnerId, onComple
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <DrugResultSelect
-                    label="Cannabis (THC)"
-                    value={results.cannabis_result}
-                    onChange={(v) => setResults({ ...results, cannabis_result: v })}
+                  <DrugResultSelect 
+                    label="Cannabis (THC)" 
+                    value={results.cannabis_result} 
+                    onChange={(v) => setResults({ ...results, cannabis_result: v })} 
                   />
-                  <DrugResultSelect
-                    label="Opioids"
-                    value={results.opioids_result}
-                    onChange={(v) => setResults({ ...results, opioids_result: v })}
+                  <DrugResultSelect 
+                    label="Opioids" 
+                    value={results.opioids_result} 
+                    onChange={(v) => setResults({ ...results, opioids_result: v })} 
                   />
-                  <DrugResultSelect
-                    label="Cocaine"
-                    value={results.cocaine_result}
-                    onChange={(v) => setResults({ ...results, cocaine_result: v })}
+                  <DrugResultSelect 
+                    label="Cocaine" 
+                    value={results.cocaine_result} 
+                    onChange={(v) => setResults({ ...results, cocaine_result: v })} 
                   />
-                  <DrugResultSelect
-                    label="Amphetamines"
-                    value={results.amphetamines_result}
-                    onChange={(v) => setResults({ ...results, amphetamines_result: v })}
+                  <DrugResultSelect 
+                    label="Amphetamines" 
+                    value={results.amphetamines_result} 
+                    onChange={(v) => setResults({ ...results, amphetamines_result: v })} 
                   />
-                  <DrugResultSelect
-                    label="Methamphetamine"
-                    value={results.methamphetamine_result}
-                    onChange={(v) => setResults({ ...results, methamphetamine_result: v })}
+                  <DrugResultSelect 
+                    label="Methamphetamine" 
+                    value={results.methamphetamine_result} 
+                    onChange={(v) => setResults({ ...results, methamphetamine_result: v })} 
                   />
-                  <DrugResultSelect
-                    label="MDMA / Ecstasy"
-                    value={results.mdma_result}
-                    onChange={(v) => setResults({ ...results, mdma_result: v })}
+                  <DrugResultSelect 
+                    label="MDMA / Ecstasy" 
+                    value={results.mdma_result} 
+                    onChange={(v) => setResults({ ...results, mdma_result: v })} 
                   />
-                  <DrugResultSelect
-                    label="Benzodiazepines"
-                    value={results.benzodiazepines_result}
-                    onChange={(v) => setResults({ ...results, benzodiazepines_result: v })}
+                  <DrugResultSelect 
+                    label="Benzodiazepines" 
+                    value={results.benzodiazepines_result} 
+                    onChange={(v) => setResults({ ...results, benzodiazepines_result: v })} 
                   />
-                  <DrugResultSelect
-                    label="Barbiturates"
-                    value={results.barbiturates_result}
-                    onChange={(v) => setResults({ ...results, barbiturates_result: v })}
+                  <DrugResultSelect 
+                    label="Barbiturates" 
+                    value={results.barbiturates_result} 
+                    onChange={(v) => setResults({ ...results, barbiturates_result: v })} 
                   />
                 </div>
 
@@ -717,9 +726,9 @@ const MedicalTestSheet = ({ open, onOpenChange, application, partnerId, onComple
                       <AlertTriangle className="w-5 h-5 text-muted-foreground" />
                     )}
                     <span className="font-medium">
-                      {isDrugClean ? "Drug Screening: CLEAN" :
-                        hasDrugPositive ? "Drug Screening: DETECTED - Certification Denied" :
-                          "Drug Screening: Tests Pending"}
+                      {isDrugClean ? "Drug Screening: CLEAN" : 
+                       hasDrugPositive ? "Drug Screening: DETECTED - Certification Denied" :
+                       "Drug Screening: Tests Pending"}
                     </span>
                   </div>
                 </div>

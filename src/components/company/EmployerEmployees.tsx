@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/select";
 import { Users, Star, FileText, UserMinus, Loader2, Award } from "lucide-react";
 import { toast } from "sonner";
-import api from "@/lib/api";
+import { supabase } from "@/integrations/supabase/client";
 
 interface EmployerEmployeesProps {
   employerId: string;
@@ -58,7 +58,7 @@ const EmployerEmployees = ({ employerId }: EmployerEmployeesProps) => {
   const [employees, setEmployees] = useState<EmploymentRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "active" | "completed">("all");
-
+  
   // Rate dialog
   const [isRateDialogOpen, setIsRateDialogOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<EmploymentRecord | null>(null);
@@ -82,17 +82,44 @@ const EmployerEmployees = ({ employerId }: EmployerEmployeesProps) => {
     performanceSummary: "",
   });
 
-  const fetchEmployees = useCallback(async () => {
+  const fetchEmployees = async () => {
     try {
-      const response = await api.get(`/employment-history?employer_id=${employerId}`);
-      setEmployees(response.data || []);
-    } catch (error) {
+      const { data, error } = await supabase
+        .from("employment_history")
+        .select(`
+          *,
+          drivers!inner(
+            first_name,
+            last_name,
+            phone
+          )
+        `)
+        .eq("employer_id", employerId)
+        .order("start_date", { ascending: false });
+
+      if (error) throw error;
+
+      // Get ratings
+      const empIds = data?.map((e: any) => e.id) || [];
+      const { data: ratings } = await supabase
+        .from("performance_ratings")
+        .select("employment_history_id, overall_rating")
+        .in("employment_history_id", empIds);
+
+      const employeesWithRatings = data?.map((emp: any) => ({
+        ...emp,
+        driver: emp.drivers,
+        rating: ratings?.find((r: any) => r.employment_history_id === emp.id) || null,
+      })) || [];
+
+      setEmployees(employeesWithRatings);
+    } catch (error: any) {
       console.error("Error fetching employees:", error);
       toast.error("Failed to load employees");
     } finally {
       setLoading(false);
     }
-  }, [employerId]);
+  };
 
   const openRateDialog = (emp: EmploymentRecord) => {
     setSelectedEmployee(emp);
@@ -111,22 +138,28 @@ const EmployerEmployees = ({ employerId }: EmployerEmployeesProps) => {
 
     setSubmitting(true);
     try {
-      await api.post("/performance-ratings", {
-        employment_history_id: selectedEmployee.id,
-        employer_id: employerId,
-        driver_id: selectedEmployee.driver_id,
-        punctuality_rating: ratingForm.punctuality,
-        safety_rating: ratingForm.safety,
-        behaviour_rating: ratingForm.behaviour,
-        vehicle_handling_rating: ratingForm.vehicleHandling,
-        remarks: ratingForm.remarks || null,
-      });
+      const { error } = await supabase
+        .from("performance_ratings")
+        .upsert({
+          employment_history_id: selectedEmployee.id,
+          employer_id: employerId,
+          driver_id: selectedEmployee.driver_id,
+          punctuality_rating: ratingForm.punctuality,
+          safety_rating: ratingForm.safety,
+          behaviour_rating: ratingForm.behaviour,
+          vehicle_handling_rating: ratingForm.vehicleHandling,
+          remarks: ratingForm.remarks || null,
+        }, {
+          onConflict: "employment_history_id",
+        });
+
+      if (error) throw error;
 
       toast.success("Rating submitted successfully");
       setIsRateDialogOpen(false);
       fetchEmployees();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to submit rating");
+      toast.error(error.message || "Failed to submit rating");
     } finally {
       setSubmitting(false);
     }
@@ -143,17 +176,22 @@ const EmployerEmployees = ({ employerId }: EmployerEmployeesProps) => {
 
     setSubmitting(true);
     try {
-      await api.patch(`/employment-history/${selectedEmployee.id}`, {
-        status: "terminated",
-        end_date: new Date().toISOString().split("T")[0],
-        termination_reason: terminationReason || null,
-      });
+      const { error } = await supabase
+        .from("employment_history")
+        .update({
+          status: "terminated",
+          end_date: new Date().toISOString().split("T")[0],
+          termination_reason: terminationReason || null,
+        })
+        .eq("id", selectedEmployee.id);
+
+      if (error) throw error;
 
       toast.success("Employment terminated");
       setIsTerminateDialogOpen(false);
       fetchEmployees();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to terminate employment");
+      toast.error(error.message || "Failed to terminate employment");
     } finally {
       setSubmitting(false);
     }
@@ -183,21 +221,25 @@ const EmployerEmployees = ({ employerId }: EmployerEmployeesProps) => {
       const certNumber = `EXP-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
       const verificationId = `VER-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
-      await api.post("/experience-certificates", {
-        employment_history_id: selectedEmployee.id,
-        driver_id: selectedEmployee.driver_id,
-        employer_id: employerId,
-        certificate_number: certNumber,
-        verification_id: verificationId,
-        vehicle_class: certForm.vehicleClass,
-        employment_duration_months: durationMonths,
-        performance_summary: certForm.performanceSummary || null,
-      });
+      const { error } = await supabase
+        .from("experience_certificates")
+        .insert({
+          employment_history_id: selectedEmployee.id,
+          driver_id: selectedEmployee.driver_id,
+          employer_id: employerId,
+          certificate_number: certNumber,
+          verification_id: verificationId,
+          vehicle_class: certForm.vehicleClass,
+          employment_duration_months: durationMonths,
+          performance_summary: certForm.performanceSummary || null,
+        });
+
+      if (error) throw error;
 
       toast.success("Experience certificate issued");
       setIsCertDialogOpen(false);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to issue certificate");
+      toast.error(error.message || "Failed to issue certificate");
     } finally {
       setSubmitting(false);
     }

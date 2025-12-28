@@ -4,8 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Building2,
+import { 
+  Building2, 
   Calendar,
   Award,
   Star,
@@ -14,9 +14,9 @@ import {
   Clock
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
-import api from "@/lib/api";
 
 interface EmploymentRecord {
   id: string;
@@ -68,50 +68,62 @@ const Experience = () => {
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
+      
+      const { data: driver } = await supabase
+        .from("drivers")
+        .select("id, first_name, last_name")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (driver) {
+        setDriverData(driver);
 
-      try {
-        const driverRes = await api.get(`/drivers/user/${user.id}`);
-        const driver = driverRes.data;
+        // Fetch employment history
+        const { data: empHistory } = await supabase
+          .from("employment_history")
+          .select(`
+            id, position, vehicle_class, start_date, end_date, status,
+            employer:data_users!employment_history_employer_id_fkey(company_name, industry_type)
+          `)
+          .eq("driver_id", driver.id)
+          .order("start_date", { ascending: false });
 
-        if (driver) {
-          setDriverData(driver);
+        setHistory(empHistory as EmploymentRecord[] || []);
 
-          // Fetch employment history
-          try {
-            const historyRes = await api.get(`/drivers/${driver.id}/employment-history`);
-            setHistory(historyRes.data || []);
-          } catch (e) {
-            console.error("Error fetching employment history", e);
-          }
+        // Fetch performance ratings
+        const { data: perfRatings } = await supabase
+          .from("performance_ratings")
+          .select(`
+            id, punctuality_rating, safety_rating, behaviour_rating, 
+            vehicle_handling_rating, overall_rating, remarks, created_at,
+            employer:data_users!performance_ratings_employer_id_fkey(company_name)
+          `)
+          .eq("driver_id", driver.id)
+          .order("created_at", { ascending: false });
 
-          // Fetch performance ratings
-          try {
-            const ratingsRes = await api.get(`/drivers/${driver.id}/performance-ratings`);
-            setRatings(ratingsRes.data || []);
-          } catch (e) {
-            console.error("Error fetching performance ratings", e);
-          }
+        setRatings(perfRatings as PerformanceRating[] || []);
 
-          // Fetch experience certificates
-          try {
-            const certsRes = await api.get(`/drivers/${driver.id}/experience-certificates`);
-            setCertificates(certsRes.data || []);
-          } catch (e) {
-            console.error("Error fetching experience certificates", e);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching driver data:", error);
-      } finally {
-        setLoading(false);
+        // Fetch experience certificates
+        const { data: expCerts } = await supabase
+          .from("experience_certificates")
+          .select(`
+            id, certificate_number, vehicle_class, employment_duration_months,
+            performance_summary, issue_date,
+            employer:data_users!experience_certificates_employer_id_fkey(company_name)
+          `)
+          .eq("driver_id", driver.id)
+          .order("issue_date", { ascending: false });
+
+        setCertificates(expCerts as ExperienceCert[] || []);
       }
+      setLoading(false);
     };
 
     fetchData();
   }, [user]);
 
-  const userName = driverData
-    ? `${driverData.first_name} ${driverData.last_name}`
+  const userName = driverData 
+    ? `${driverData.first_name} ${driverData.last_name}` 
     : "Driver";
 
   const averageRating = ratings.length > 0
@@ -122,8 +134,8 @@ const Experience = () => {
     return (
       <div className="flex gap-0.5">
         {[1, 2, 3, 4, 5].map((star) => (
-          <Star
-            key={star}
+          <Star 
+            key={star} 
             className={`w-4 h-4 ${star <= rating ? "fill-yellow-400 text-yellow-400" : "text-muted"}`}
           />
         ))}
@@ -242,7 +254,7 @@ const Experience = () => {
                       <div className="flex items-center gap-1.5">
                         <Calendar className="w-4 h-4 text-muted-foreground" />
                         <span>
-                          {format(new Date(record.start_date), "MMM yyyy")} -
+                          {format(new Date(record.start_date), "MMM yyyy")} - 
                           {record.end_date ? format(new Date(record.end_date), " MMM yyyy") : " Present"}
                         </span>
                       </div>

@@ -5,21 +5,22 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Briefcase,
-  Eye,
-  EyeOff,
-  MapPin,
+import { 
+  Briefcase, 
+  Eye, 
+  EyeOff, 
+  MapPin, 
   DollarSign,
   Shield,
   AlertTriangle
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import api from "@/lib/api";
 
 interface EmploymentStatus {
   id?: string;
@@ -59,51 +60,47 @@ const Employment = () => {
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
+      
+      const { data: driver } = await supabase
+        .from("drivers")
+        .select("id, first_name, last_name")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (driver) {
+        setDriverData(driver);
 
-      try {
-        const driverRes = await api.get(`/drivers/user/${user.id}`);
-        const driver = driverRes.data;
+        // Check if driver has any active certificate
+        const { data: apps } = await supabase
+          .from("applications")
+          .select("certificate_number")
+          .eq("driver_id", driver.id)
+          .not("certificate_number", "is", null)
+          .limit(1);
+        
+        setHasCertificate(apps && apps.length > 0);
 
-        if (driver) {
-          setDriverData(driver);
+        // Get existing employment status
+        const { data: empStatus } = await supabase
+          .from("driver_employment_status")
+          .select("*")
+          .eq("driver_id", driver.id)
+          .maybeSingle();
 
-          // Check if driver has any active certificate
-          try {
-            const appsRes = await api.get(`/applications/driver/${driver.id}`);
-            const apps = appsRes.data;
-            const hasCert = apps && apps.some((app: { certificate_number: string | null }) => app.certificate_number);
-            setHasCertificate(hasCert);
-          } catch (e) {
-            console.error("Error fetching applications", e);
-          }
-
-          // Get existing employment status
-          try {
-            const empStatusRes = await api.get(`/drivers/${driver.id}/employment-status`);
-            const empStatus = empStatusRes.data;
-
-            if (empStatus) {
-              setStatus({
-                id: empStatus.id,
-                employment_status: empStatus.employment_status || "unemployed",
-                availability: empStatus.availability || "full_time",
-                preferred_work_types: empStatus.preferred_work_types || [],
-                preferred_locations: empStatus.preferred_locations || [],
-                expected_salary_min: empStatus.expected_salary_min,
-                expected_salary_max: empStatus.expected_salary_max,
-                is_visible_to_employers: empStatus.is_visible_to_employers || false,
-              });
-            }
-          } catch (e) {
-            // It's okay if no status exists yet
-            console.log("No existing employment status found");
-          }
+        if (empStatus) {
+          setStatus({
+            id: empStatus.id,
+            employment_status: empStatus.employment_status || "unemployed",
+            availability: empStatus.availability || "full_time",
+            preferred_work_types: empStatus.preferred_work_types || [],
+            preferred_locations: empStatus.preferred_locations || [],
+            expected_salary_min: empStatus.expected_salary_min,
+            expected_salary_max: empStatus.expected_salary_max,
+            is_visible_to_employers: empStatus.is_visible_to_employers || false,
+          });
         }
-      } catch (error) {
-        console.error("Error fetching driver data:", error);
-      } finally {
-        setLoading(false);
       }
+      setLoading(false);
     };
 
     fetchData();
@@ -111,22 +108,19 @@ const Employment = () => {
 
   const handleVisibilityToggle = async (checked: boolean) => {
     if (!driverData) return;
-
+    
     setStatus(prev => ({ ...prev, is_visible_to_employers: checked }));
-
-    // Log consent via API
-    try {
-      await api.post(`/drivers/${driverData.id}/visibility-consent`, {
-        action: checked ? "opt_in" : "opt_out",
-      });
-    } catch (error) {
-      console.error("Failed to log visibility consent", error);
-    }
+    
+    // Log consent
+    await supabase.from("visibility_consent_logs").insert({
+      driver_id: driverData.id,
+      action: checked ? "opt_in" : "opt_out",
+    });
   };
 
   const handleSave = async () => {
     if (!driverData) return;
-
+    
     setSaving(true);
     try {
       const data = {
@@ -142,14 +136,18 @@ const Employment = () => {
       };
 
       if (status.id) {
-        await api.patch(`/drivers/${driverData.id}/employment-status/${status.id}`, data);
+        await supabase
+          .from("driver_employment_status")
+          .update(data)
+          .eq("id", status.id);
       } else {
-        await api.post(`/drivers/${driverData.id}/employment-status`, data);
+        await supabase
+          .from("driver_employment_status")
+          .insert(data);
       }
 
       toast.success("Employment preferences saved successfully");
     } catch (error) {
-      console.error("Error saving preferences:", error);
       toast.error("Failed to save preferences");
     } finally {
       setSaving(false);
@@ -165,8 +163,8 @@ const Employment = () => {
     }));
   };
 
-  const userName = driverData
-    ? `${driverData.first_name} ${driverData.last_name}`
+  const userName = driverData 
+    ? `${driverData.first_name} ${driverData.last_name}` 
     : "Driver";
 
   if (loading) {
@@ -217,14 +215,14 @@ const Employment = () => {
                 <div>
                   <CardTitle>Job Visibility</CardTitle>
                   <CardDescription>
-                    {status.is_visible_to_employers
-                      ? "Employers can find you in the Driver Exchange"
+                    {status.is_visible_to_employers 
+                      ? "Employers can find you in the Driver Exchange" 
                       : "You are hidden from employer searches"}
                   </CardDescription>
                 </div>
               </div>
-              <Switch
-                checked={status.is_visible_to_employers}
+              <Switch 
+                checked={status.is_visible_to_employers} 
                 onCheckedChange={handleVisibilityToggle}
                 disabled={!hasCertificate}
               />
@@ -252,8 +250,8 @@ const Employment = () => {
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Employment Status</Label>
-                <Select
-                  value={status.employment_status}
+                <Select 
+                  value={status.employment_status} 
                   onValueChange={(v) => setStatus(prev => ({ ...prev, employment_status: v }))}
                 >
                   <SelectTrigger>
@@ -269,8 +267,8 @@ const Employment = () => {
               </div>
               <div className="space-y-2">
                 <Label>Availability</Label>
-                <Select
-                  value={status.availability}
+                <Select 
+                  value={status.availability} 
                   onValueChange={(v) => setStatus(prev => ({ ...prev, availability: v }))}
                 >
                   <SelectTrigger>
@@ -324,25 +322,25 @@ const Employment = () => {
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Minimum (Monthly)</Label>
-                <Input
-                  type="number"
+                <Input 
+                  type="number" 
                   placeholder="e.g., 15000"
                   value={status.expected_salary_min || ""}
-                  onChange={(e) => setStatus(prev => ({
-                    ...prev,
-                    expected_salary_min: e.target.value ? Number(e.target.value) : null
+                  onChange={(e) => setStatus(prev => ({ 
+                    ...prev, 
+                    expected_salary_min: e.target.value ? Number(e.target.value) : null 
                   }))}
                 />
               </div>
               <div className="space-y-2">
                 <Label>Maximum (Monthly)</Label>
-                <Input
-                  type="number"
+                <Input 
+                  type="number" 
                   placeholder="e.g., 25000"
                   value={status.expected_salary_max || ""}
-                  onChange={(e) => setStatus(prev => ({
-                    ...prev,
-                    expected_salary_max: e.target.value ? Number(e.target.value) : null
+                  onChange={(e) => setStatus(prev => ({ 
+                    ...prev, 
+                    expected_salary_max: e.target.value ? Number(e.target.value) : null 
                   }))}
                 />
               </div>
@@ -360,11 +358,11 @@ const Employment = () => {
             <CardDescription>Enter cities or areas where you'd like to work</CardDescription>
           </CardHeader>
           <CardContent>
-            <Input
+            <Input 
               placeholder="e.g., Mumbai, Delhi, Pune (comma-separated)"
               value={status.preferred_locations.join(", ")}
-              onChange={(e) => setStatus(prev => ({
-                ...prev,
+              onChange={(e) => setStatus(prev => ({ 
+                ...prev, 
                 preferred_locations: e.target.value.split(",").map(s => s.trim()).filter(Boolean)
               }))}
             />

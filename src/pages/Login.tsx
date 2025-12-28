@@ -7,19 +7,18 @@ import { Label } from "@/components/ui/label";
 import motractLogo from "@/assets/motract-logo.jpg";
 import { ArrowLeft, Mail, Lock } from "lucide-react";
 import { toast } from "sonner";
-import api from "@/lib/api";
-import { useAuth } from "@/contexts/AuthContext";
-
+import { supabase } from "@/integrations/supabase/client";
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
-
-  const redirectByRole = (role?: string) => {
+  const redirectByRole = async (userId: string) => {
+    const {
+      data: roleData
+    } = await supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle();
     toast.success("Login successful!");
-    switch (role) {
+    switch (roleData?.role) {
       case "admin":
         navigate("/admin");
         break;
@@ -41,7 +40,6 @@ const Login = () => {
         break;
     }
   };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
@@ -50,26 +48,24 @@ const Login = () => {
     }
     setIsLoading(true);
     try {
-      const response = await api.post("/auth/login", { email, password });
-      const { access_token, user } = response.data;
-
-      login(access_token, user);
-
-      // For this migration, let's assume the backend returns the role or we fetch it
-      // Since we haven't implemented role return in backend login yet, we might need to fetch profile
-
-      // For now, just redirect to driver as default, or handle role fetching
-      redirectByRole("driver");
-
+      const {
+        data,
+        error
+      } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      if (error) throw error;
+      if (data.user) {
+        await redirectByRole(data.user.id);
+      }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Invalid credentials");
+      toast.error(error.message || "Invalid credentials");
     } finally {
       setIsLoading(false);
     }
   };
-
-  return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+  return <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-colors">
           <ArrowLeft className="w-4 h-4" />
@@ -79,7 +75,7 @@ const Login = () => {
         <Card className="border-2">
           <CardHeader className="text-center pb-2">
             <div className="mx-auto mb-4">
-
+              
             </div>
             <CardTitle className="text-2xl">Welcome back</CardTitle>
             <CardDescription>Sign in to your account</CardDescription>
@@ -116,7 +112,6 @@ const Login = () => {
           </CardContent>
         </Card>
       </div>
-    </div>
-  );
+    </div>;
 };
 export default Login;

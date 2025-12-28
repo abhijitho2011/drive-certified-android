@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import {
-  Search,
-  CheckCircle2,
-  XCircle,
+import { 
+  Search, 
+  CheckCircle2, 
+  XCircle, 
   AlertTriangle,
   QrCode,
   Calendar,
@@ -24,7 +24,7 @@ import {
   FlaskConical,
   ClipboardCheck
 } from "lucide-react";
-import api from "@/lib/api";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DrivingTestData {
   trafficTestScore?: number;
@@ -97,41 +97,139 @@ const SingleVerification = ({ dataUserId, companyName, onVerificationComplete }:
 
   const handleVerify = async () => {
     if (!searchQuery.trim()) return;
-
+    
     setSearching(true);
     setResult(null);
+    
+    // Use secure view that excludes sensitive data (Aadhaar, addresses, DOB, documents)
+    // Company verifiers can only search by certificate number (driver_id not exposed in view)
+    const { data: app } = await supabase
+      .from("applications_verification")
+      .select(`
+        id,
+        certificate_number,
+        status,
+        admin_approved,
+        skill_grade,
+        certification_vehicle_class,
+        vehicle_classes,
+        certificate_status,
+        certificate_expiry_date,
+        medical_test_passed,
+        driving_test_passed,
+        full_name
+      `)
+      .eq("certificate_number", searchQuery.trim().toUpperCase())
+      .maybeSingle();
+    
+    let verificationResult: VerificationResult;
+    
+    if (app && app.certificate_number) {
+      // Use full_name from the secure view (driver_id not exposed)
+      const driverName = app.full_name || "Unknown";
 
-    try {
-      const response = await api.get(`/verifications/single?certificate_number=${searchQuery.trim().toUpperCase()}`);
-      const verificationResult = response.data;
+      // Fetch driving test results
+      const { data: drivingResults } = await supabase
+        .from("driving_test_results")
+        .select("*")
+        .eq("application_id", app.id)
+        .maybeSingle();
 
-      setResult(verificationResult);
-      onVerificationComplete(verificationResult, searchQuery);
-    } catch (error: any) {
-      console.error("Verification error:", error);
-      // If 404, show not found result
-      if (error.response?.status === 404) {
-        const notFoundResult: VerificationResult = {
-          found: false,
-          valid: false,
-          recommendation: "not_eligible"
-        };
-        setResult(notFoundResult);
-        onVerificationComplete(notFoundResult, searchQuery);
-      } else {
-        // For other errors, maybe show a toast or handle differently
-        // For now, treating as not found/error
-        const errorResult: VerificationResult = {
-          found: false,
-          valid: false,
-          recommendation: "not_eligible"
-        };
-        setResult(errorResult);
-        onVerificationComplete(errorResult, searchQuery);
+      // Fetch medical test results
+      const { data: medicalResults } = await supabase
+        .from("medical_test_results")
+        .select("*")
+        .eq("application_id", app.id)
+        .maybeSingle();
+
+      const isExpired = app.certificate_expiry_date && new Date(app.certificate_expiry_date) < new Date();
+      const isExpiringSoon = app.certificate_expiry_date && 
+        new Date(app.certificate_expiry_date) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) &&
+        !isExpired;
+      
+      const fitnessStatus = medicalResults?.fitness_status || "Unknown";
+      const isConditionalFit = fitnessStatus === "conditionally_fit";
+      
+      // Determine recommendation
+      let recommendation: "eligible" | "eligible_conditions" | "not_eligible" = "eligible";
+      if (isExpired || app.certificate_status === "expired" || app.certificate_status === "revoked") {
+        recommendation = "not_eligible";
+      } else if (isExpiringSoon || isConditionalFit) {
+        recommendation = "eligible_conditions";
       }
-    } finally {
-      setSearching(false);
+
+      // Build driving test data
+      const drivingTestData: DrivingTestData = drivingResults ? {
+        trafficTestScore: drivingResults.traffic_test_score,
+        trafficTestTotal: drivingResults.traffic_test_total || 20,
+        trafficTestPassed: drivingResults.traffic_test_passed,
+        practicalTestPassed: drivingResults.practical_test_passed,
+        vehicleControlScore: drivingResults.vehicle_control_score,
+        parallelParkingScore: drivingResults.parallel_parking_score,
+        hillDrivingScore: drivingResults.hill_driving_score,
+        emergencyHandlingScore: drivingResults.emergency_handling_score,
+        defensiveDrivingScore: drivingResults.defensive_driving_score,
+        inspectionTestPassed: drivingResults.inspection_test_passed,
+        brakeSystemScore: drivingResults.brake_system_score,
+        engineFluidsScore: drivingResults.engine_fluids_score,
+        tyresScore: drivingResults.tyres_score,
+        lightsSafetyScore: drivingResults.lights_safety_score,
+        totalScore: drivingResults.total_score,
+        overallPassed: drivingResults.overall_passed
+      } : undefined;
+
+      // Build medical test data (excluding individual drug names)
+      const medicalTestData: MedicalTestData = medicalResults ? {
+        fitnessStatus: medicalResults.fitness_status,
+        bloodPressure: medicalResults.blood_pressure_systolic && medicalResults.blood_pressure_diastolic 
+          ? `${medicalResults.blood_pressure_systolic}/${medicalResults.blood_pressure_diastolic}` 
+          : undefined,
+        bloodPressureStatus: medicalResults.blood_pressure_status,
+        bmi: medicalResults.bmi ? Number(medicalResults.bmi) : undefined,
+        bmiStatus: medicalResults.bmi_status,
+        heartRate: medicalResults.heart_rate,
+        heartRateStatus: medicalResults.heart_rate_status,
+        visionLeft: medicalResults.vision_left,
+        visionRight: medicalResults.vision_right,
+        visionStatus: medicalResults.vision_status,
+        hearingStatus: medicalResults.hearing_status,
+        healthScreeningPassed: medicalResults.health_screening_passed,
+        alcoholResult: medicalResults.alcohol_result,
+        drugScreeningPassed: medicalResults.drug_screening_passed,
+        substanceScreeningResult: medicalResults.drug_screening_passed === false ? "Detected" : "Clean"
+      } : undefined;
+
+      verificationResult = {
+        found: true,
+        valid: app.admin_approved && app.status === "approved" && !isExpired && app.certificate_status === "active",
+        certificateNo: app.certificate_number,
+        driverName,
+        fullName: app.full_name,
+        status: app.status,
+        vehicleClass: app.certification_vehicle_class || (app.vehicle_classes as string[])?.join(", ") || "N/A",
+        skillGrade: app.skill_grade || "N/A",
+        medicalFitness: fitnessStatus,
+        expiryDate: app.certificate_expiry_date,
+        certificateStatus: app.certificate_status,
+        renewalType: undefined, // Not exposed in secure view
+        isExpiringSoon,
+        isConditionalFit,
+        recommendation,
+        applicationId: app.id,
+        drivingTestData,
+        medicalTestData
+      };
+    } else {
+      verificationResult = {
+        found: false,
+        valid: false,
+        recommendation: "not_eligible"
+      };
     }
+    
+    setResult(verificationResult);
+    onVerificationComplete(verificationResult, searchQuery);
+    setSearching(false);
   };
 
   const getRecommendationBadge = (rec: string) => {
@@ -168,7 +266,7 @@ const SingleVerification = ({ dataUserId, companyName, onVerificationComplete }:
                 <p className="text-sm text-muted-foreground">Search by certificate number</p>
               </div>
             </div>
-
+            
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -195,10 +293,11 @@ const SingleVerification = ({ dataUserId, companyName, onVerificationComplete }:
             {result.found ? (
               <div className="space-y-6">
                 {/* Status Header */}
-                <div className={`p-4 rounded-lg flex items-center justify-between ${result.valid
-                  ? "bg-success/10 border border-success/30"
-                  : "bg-destructive/10 border border-destructive/30"
-                  }`}>
+                <div className={`p-4 rounded-lg flex items-center justify-between ${
+                  result.valid 
+                    ? "bg-success/10 border border-success/30" 
+                    : "bg-destructive/10 border border-destructive/30"
+                }`}>
                   <div className="flex items-center gap-3">
                     {result.valid ? (
                       <CheckCircle2 className="w-8 h-8 text-success" />
@@ -431,17 +530,19 @@ const SingleVerification = ({ dataUserId, companyName, onVerificationComplete }:
                         <div className="grid grid-cols-2 gap-3">
                           <div className="p-3 bg-muted/30 rounded">
                             <p className="text-xs text-muted-foreground">Alcohol</p>
-                            <p className={`font-medium capitalize ${result.medicalTestData.alcoholResult === "negative" ? "text-success" :
+                            <p className={`font-medium capitalize ${
+                              result.medicalTestData.alcoholResult === "negative" ? "text-success" : 
                               result.medicalTestData.alcoholResult === "positive" ? "text-destructive" : ""
-                              }`}>
+                            }`}>
                               {result.medicalTestData.alcoholResult || "N/A"}
                             </p>
                           </div>
                           <div className="p-3 bg-muted/30 rounded">
                             <p className="text-xs text-muted-foreground">Drug Screening</p>
-                            <p className={`font-medium ${result.medicalTestData.drugScreeningPassed === true ? "text-success" :
+                            <p className={`font-medium ${
+                              result.medicalTestData.drugScreeningPassed === true ? "text-success" : 
                               result.medicalTestData.drugScreeningPassed === false ? "text-destructive" : ""
-                              }`}>
+                            }`}>
                               {result.medicalTestData.substanceScreeningResult || "N/A"}
                             </p>
                           </div>
@@ -449,11 +550,12 @@ const SingleVerification = ({ dataUserId, companyName, onVerificationComplete }:
                       </div>
 
                       {/* Medical Fitness Status */}
-                      <div className={`p-4 rounded-lg border ${result.medicalTestData.fitnessStatus === "fit" ? "bg-success/10 border-success/30" :
+                      <div className={`p-4 rounded-lg border ${
+                        result.medicalTestData.fitnessStatus === "fit" ? "bg-success/10 border-success/30" :
                         result.medicalTestData.fitnessStatus === "conditionally_fit" ? "bg-warning/10 border-warning/30" :
-                          result.medicalTestData.fitnessStatus === "unfit" ? "bg-destructive/10 border-destructive/30" :
-                            "bg-muted/50"
-                        }`}>
+                        result.medicalTestData.fitnessStatus === "unfit" ? "bg-destructive/10 border-destructive/30" :
+                        "bg-muted/50"
+                      }`}>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <ClipboardCheck className="w-5 h-5" />
@@ -461,9 +563,9 @@ const SingleVerification = ({ dataUserId, companyName, onVerificationComplete }:
                           </div>
                           <Badge className={
                             result.medicalTestData.fitnessStatus === "fit" ? "bg-success text-success-foreground" :
-                              result.medicalTestData.fitnessStatus === "conditionally_fit" ? "bg-warning text-warning-foreground" :
-                                result.medicalTestData.fitnessStatus === "unfit" ? "bg-destructive" :
-                                  ""
+                            result.medicalTestData.fitnessStatus === "conditionally_fit" ? "bg-warning text-warning-foreground" :
+                            result.medicalTestData.fitnessStatus === "unfit" ? "bg-destructive" :
+                            ""
                           }>
                             {result.medicalTestData.fitnessStatus?.replace("_", " ").toUpperCase() || "PENDING"}
                           </Badge>

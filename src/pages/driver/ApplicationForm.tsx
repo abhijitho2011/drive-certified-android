@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -13,7 +14,6 @@ import VerificationRequestSection from "@/components/application/VerificationReq
 import DocumentUploadSection from "@/components/application/DocumentUploadSection";
 import DeclarationSection from "@/components/application/DeclarationSection";
 import TestCenterSection from "@/components/application/TestCenterSection";
-import api from "@/lib/api";
 
 export interface ApplicationFormData {
   // Section 1: Basic Details
@@ -119,11 +119,16 @@ const ApplicationForm = () => {
   useEffect(() => {
     const fetchDriverData = async () => {
       if (!user) return;
-
+      
       try {
         // Get driver ID
-        const driverRes = await api.get(`/drivers/user/${user.id}`);
-        const driver = driverRes.data;
+        const { data: driver, error: driverError } = await supabase
+          .from("drivers")
+          .select("*")
+          .eq("user_id", user.id)
+          .single();
+
+        if (driverError) throw driverError;
         setDriverId(driver.id);
 
         // Pre-fill form with driver data
@@ -134,42 +139,42 @@ const ApplicationForm = () => {
         }));
 
         // Check for existing pending application (not approved/rejected ones)
-        try {
-          const existingAppRes = await api.get(`/applications/driver/${driver.id}/latest`);
-          const existingApp = existingAppRes.data;
+        const { data: existingApp } = await supabase
+          .from("applications")
+          .select("*")
+          .eq("driver_id", driver.id)
+          .eq("status", "pending")
+          .maybeSingle();
 
-          // If pending application exists, load its data
-          if (existingApp && existingApp.status === "pending") {
-            setFormData(prev => ({
-              ...prev,
-              fullName: existingApp.full_name || prev.fullName,
-              dateOfBirth: existingApp.date_of_birth || "",
-              gender: existingApp.gender || "",
-              currentAddress: existingApp.current_address || prev.currentAddress,
-              permanentAddress: existingApp.permanent_address || "",
-              aadhaarNumber: existingApp.aadhaar_number || "",
-              highestQualification: existingApp.highest_qualification || "",
-              licenceNumber: existingApp.licence_number || "",
-              issuingRto: existingApp.issuing_rto || "",
-              licenceIssueDate: existingApp.licence_issue_date || "",
-              licenceExpiryDate: existingApp.licence_expiry_date || "",
-              licenceType: existingApp.licence_type || "",
-              vehicleClasses: existingApp.vehicle_classes || [],
-              hazardousEndorsement: existingApp.hazardous_endorsement || false,
-              certificationVehicleClasses: existingApp.certification_vehicle_class ? existingApp.certification_vehicle_class.split(',') : [],
-              certificationPurposes: existingApp.certification_purpose ? existingApp.certification_purpose.split(',') : [],
-              documents: (existingApp.documents as ApplicationFormData['documents']) || {},
-              declarationSigned: existingApp.declaration_signed || false,
-              testState: existingApp.test_state || "",
-              testDistrict: existingApp.test_district || "",
-              drivingSchoolId: existingApp.driving_school_id || "",
-              medicalLabId: existingApp.medical_lab_id || "",
-              drivingTestSlot: existingApp.driving_test_slot || "",
-              medicalTestSlot: existingApp.medical_test_slot || "",
-            }));
-          }
-        } catch (error) {
-          // Ignore if no existing application found
+        // If pending application exists, load its data
+        if (existingApp) {
+          setFormData(prev => ({
+            ...prev,
+            fullName: existingApp.full_name || prev.fullName,
+            dateOfBirth: existingApp.date_of_birth || "",
+            gender: existingApp.gender || "",
+            currentAddress: existingApp.current_address || prev.currentAddress,
+            permanentAddress: existingApp.permanent_address || "",
+            aadhaarNumber: existingApp.aadhaar_number || "",
+            highestQualification: existingApp.highest_qualification || "",
+            licenceNumber: existingApp.licence_number || "",
+            issuingRto: existingApp.issuing_rto || "",
+            licenceIssueDate: existingApp.licence_issue_date || "",
+            licenceExpiryDate: existingApp.licence_expiry_date || "",
+            licenceType: existingApp.licence_type || "",
+            vehicleClasses: existingApp.vehicle_classes || [],
+            hazardousEndorsement: existingApp.hazardous_endorsement || false,
+            certificationVehicleClasses: existingApp.certification_vehicle_class ? existingApp.certification_vehicle_class.split(',') : [],
+            certificationPurposes: existingApp.certification_purpose ? existingApp.certification_purpose.split(',') : [],
+            documents: (existingApp.documents as ApplicationFormData['documents']) || {},
+            declarationSigned: existingApp.declaration_signed || false,
+            testState: existingApp.test_state || "",
+            testDistrict: existingApp.test_district || "",
+            drivingSchoolId: existingApp.driving_school_id || "",
+            medicalLabId: existingApp.medical_lab_id || "",
+            drivingTestSlot: existingApp.driving_test_slot || "",
+            medicalTestSlot: existingApp.medical_test_slot || "",
+          }));
         }
       } catch (error) {
         console.error("Error fetching driver data:", error);
@@ -189,8 +194,8 @@ const ApplicationForm = () => {
   const validateCurrentStep = (): boolean => {
     switch (currentStep) {
       case 1:
-        if (!formData.fullName || !formData.dateOfBirth || !formData.gender ||
-          !formData.currentAddress || !formData.aadhaarNumber) {
+        if (!formData.fullName || !formData.dateOfBirth || !formData.gender || 
+            !formData.currentAddress || !formData.aadhaarNumber) {
           toast.error("Please fill in all required fields");
           return false;
         }
@@ -206,8 +211,8 @@ const ApplicationForm = () => {
         }
         return true;
       case 3:
-        if (!formData.licenceNumber || !formData.issuingRto ||
-          !formData.licenceIssueDate || !formData.licenceExpiryDate || !formData.licenceType) {
+        if (!formData.licenceNumber || !formData.issuingRto || 
+            !formData.licenceIssueDate || !formData.licenceExpiryDate || !formData.licenceType) {
           toast.error("Please fill in all licence details");
           return false;
         }
@@ -223,8 +228,8 @@ const ApplicationForm = () => {
         }
         return true;
       case 5:
-        if (!formData.documents.licenceFront || !formData.documents.licenceBack ||
-          !formData.documents.aadhaarId || !formData.documents.educationCertificate || !formData.documents.photograph) {
+        if (!formData.documents.licenceFront || !formData.documents.licenceBack || 
+            !formData.documents.aadhaarId || !formData.documents.educationCertificate || !formData.documents.photograph) {
           toast.error("Please upload all required documents");
           return false;
         }
@@ -236,8 +241,8 @@ const ApplicationForm = () => {
         }
         return true;
       case 7:
-        if (!formData.testState || !formData.testDistrict ||
-          !formData.drivingSchoolId || !formData.medicalLabId) {
+        if (!formData.testState || !formData.testDistrict || 
+            !formData.drivingSchoolId || !formData.medicalLabId) {
           toast.error("Please select test centers");
           return false;
         }
@@ -294,28 +299,30 @@ const ApplicationForm = () => {
       };
 
       // Check if application exists
-      let existingAppId = null;
-      try {
-        const existingAppRes = await api.get(`/applications/driver/${driverId}/latest`);
-        if (existingAppRes.data && existingAppRes.data.status === "pending") {
-          existingAppId = existingAppRes.data.id;
-        }
-      } catch (error) {
-        // Ignore
-      }
+      const { data: existingApp } = await supabase
+        .from("applications")
+        .select("id")
+        .eq("driver_id", driverId)
+        .maybeSingle();
 
-      if (existingAppId) {
-        await api.patch(`/applications/${existingAppId}`, applicationData);
+      if (existingApp) {
+        const { error } = await supabase
+          .from("applications")
+          .update(applicationData)
+          .eq("id", existingApp.id);
+        if (error) throw error;
       } else {
-        await api.post("/applications", applicationData);
+        const { error } = await supabase
+          .from("applications")
+          .insert(applicationData);
+        if (error) throw error;
       }
 
       toast.success("Application submitted successfully!");
       navigate("/driver");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error submitting application:", error);
-      const errorMessage = (error as any).response?.data?.message || "Failed to submit application";
-      toast.error(errorMessage);
+      toast.error(error.message || "Failed to submit application");
     } finally {
       setIsSubmitting(false);
     }
@@ -368,16 +375,18 @@ const ApplicationForm = () => {
             {STEPS.map((step) => (
               <div
                 key={step.id}
-                className={`flex flex-col items-center flex-1 ${step.id <= currentStep ? "text-primary" : "text-muted-foreground"
-                  }`}
+                className={`flex flex-col items-center flex-1 ${
+                  step.id <= currentStep ? "text-primary" : "text-muted-foreground"
+                }`}
               >
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium mb-1 ${step.id < currentStep
-                    ? "bg-primary text-primary-foreground"
-                    : step.id === currentStep
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium mb-1 ${
+                    step.id < currentStep
+                      ? "bg-primary text-primary-foreground"
+                      : step.id === currentStep
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted text-muted-foreground"
-                    }`}
+                  }`}
                 >
                   {step.id < currentStep ? <Check className="h-4 w-4" /> : step.id}
                 </div>

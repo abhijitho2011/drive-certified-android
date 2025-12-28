@@ -2,10 +2,10 @@ import { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 import { ApplicationFormData } from "@/pages/driver/ApplicationForm";
 import { toast } from "sonner";
 import { Upload, Check, X, Loader2, FileText, Image } from "lucide-react";
-import api from "@/lib/api";
 
 interface Props {
   formData: ApplicationFormData;
@@ -44,30 +44,30 @@ const DocumentUploadSection = ({ formData, updateFormData, userId }: Props) => {
     setUploading(docType);
 
     try {
-      const formDataUpload = new FormData();
-      formDataUpload.append("file", file);
-      formDataUpload.append("type", docType);
-      formDataUpload.append("userId", userId);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${userId}/${docType}-${Date.now()}.${fileExt}`;
 
-      const response = await api.post("/uploads", formDataUpload, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      const { error: uploadError } = await supabase.storage
+        .from("application-documents")
+        .upload(fileName, file, { upsert: true });
 
-      const { url } = response.data;
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("application-documents")
+        .getPublicUrl(fileName);
 
       updateFormData({
         documents: {
           ...formData.documents,
-          [docType]: url,
+          [docType]: fileName,
         },
       });
 
       toast.success("Document uploaded successfully");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Upload error:", error);
-      toast.error("Failed to upload document");
+      toast.error(error.message || "Failed to upload document");
     } finally {
       setUploading(null);
     }
@@ -78,15 +78,16 @@ const DocumentUploadSection = ({ formData, updateFormData, userId }: Props) => {
     if (!fileName) return;
 
     try {
-      // Optional: Call backend to delete file
-      // await api.delete(`/uploads/${fileName}`);
+      await supabase.storage
+        .from("application-documents")
+        .remove([fileName]);
 
       const updatedDocs = { ...formData.documents };
       delete updatedDocs[docType];
       updateFormData({ documents: updatedDocs });
 
       toast.success("Document removed");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Remove error:", error);
       toast.error("Failed to remove document");
     }
@@ -109,10 +110,11 @@ const DocumentUploadSection = ({ formData, updateFormData, userId }: Props) => {
           return (
             <div
               key={doc.id}
-              className={`p-4 rounded-lg border-2 border-dashed transition-colors ${isUploaded
-                ? "border-green-500 bg-green-50 dark:bg-green-950/20"
-                : "border-border hover:border-primary/50"
-                }`}
+              className={`p-4 rounded-lg border-2 border-dashed transition-colors ${
+                isUploaded
+                  ? "border-green-500 bg-green-50 dark:bg-green-950/20"
+                  : "border-border hover:border-primary/50"
+              }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">

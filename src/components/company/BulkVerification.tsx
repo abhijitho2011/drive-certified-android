@@ -11,16 +11,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Upload,
-  Download,
+import { 
+  Upload, 
+  Download, 
   FileSpreadsheet,
   CheckCircle2,
   XCircle,
   AlertTriangle,
   Loader2
 } from "lucide-react";
-import api from "@/lib/api";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
@@ -80,28 +80,64 @@ const BulkVerification = ({ dataUserId, companyName, onBulkVerificationComplete 
       }
 
       const bulkResults: BulkResult[] = [];
-      const batchSize = 50;
+      const batchSize = 10;
 
       for (let i = 0; i < queries.length; i += batchSize) {
         const batch = queries.slice(i, i + batchSize);
+        
+        // Use secure view that excludes sensitive data (Aadhaar, addresses, DOB, documents)
+        const { data: apps } = await supabase
+          .from("applications_verification")
+          .select(`
+            id,
+            certificate_number,
+            status,
+            admin_approved,
+            skill_grade,
+            certification_vehicle_class,
+            vehicle_classes,
+            certificate_status,
+            certificate_expiry_date,
+            full_name
+          `)
+          .in("certificate_number", batch.map(q => q.toUpperCase()));
 
-        try {
-          const response = await api.post('/verifications/bulk', {
-            certificate_numbers: batch
-          });
+        for (const query of batch) {
+          const app = apps?.find(a => 
+            a.certificate_number?.toUpperCase() === query.toUpperCase()
+          );
 
-          const batchResults = response.data;
-          bulkResults.push(...batchResults);
-        } catch (error) {
-          console.error("Batch verification error:", error);
-          // Add error results for this batch
-          batch.forEach(q => {
+          if (app && app.certificate_number) {
+            const isExpired = app.certificate_expiry_date && new Date(app.certificate_expiry_date) < new Date();
+            const isValid = app.admin_approved && app.status === "approved" && !isExpired && app.certificate_status === "active";
+
+            let status: "valid" | "invalid" | "expired" | "not_found" = "valid";
+            if (!app.admin_approved || app.status !== "approved") {
+              status = "invalid";
+            } else if (isExpired || app.certificate_status === "expired") {
+              status = "expired";
+            }
+
+            let recommendation = "Eligible";
+            if (status === "expired") recommendation = "Not Eligible (Expired)";
+            else if (status === "invalid") recommendation = "Not Eligible";
+
             bulkResults.push({
-              query: q,
-              status: "not_found",
-              recommendation: "Error processing verification"
+              query,
+              status,
+              certificateNo: app.certificate_number,
+              driverName: app.full_name || "Unknown",
+              vehicleClass: app.certification_vehicle_class || (app.vehicle_classes as string[])?.join(", "),
+              expiryDate: app.certificate_expiry_date,
+              recommendation
             });
-          });
+          } else {
+            bulkResults.push({
+              query,
+              status: "not_found",
+              recommendation: "Not Eligible (Not Found)"
+            });
+          }
         }
 
         setProgress(Math.round(((i + batch.length) / queries.length) * 100));
@@ -152,6 +188,17 @@ const BulkVerification = ({ dataUserId, companyName, onBulkVerificationComplete 
     XLSX.writeFile(wb, `verification_report_${new Date().toISOString().split("T")[0]}.xlsx`);
   };
 
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "valid":
+        return <CheckCircle2 className="w-4 h-4 text-success" />;
+      case "expired":
+        return <AlertTriangle className="w-4 h-4 text-warning" />;
+      default:
+        return <XCircle className="w-4 h-4 text-destructive" />;
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "valid":
@@ -195,7 +242,7 @@ const BulkVerification = ({ dataUserId, companyName, onBulkVerificationComplete 
               onChange={handleFileSelect}
               className="hidden"
             />
-            <Button
+            <Button 
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
             >
@@ -297,7 +344,7 @@ const BulkVerification = ({ dataUserId, companyName, onBulkVerificationComplete 
                         <TableCell>{result.driverName || "-"}</TableCell>
                         <TableCell>{result.vehicleClass || "-"}</TableCell>
                         <TableCell>
-                          {result.expiryDate
+                          {result.expiryDate 
                             ? new Date(result.expiryDate).toLocaleDateString()
                             : "-"}
                         </TableCell>
