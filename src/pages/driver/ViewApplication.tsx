@@ -17,17 +17,54 @@ import {
   MapPin,
   GraduationCap
 } from "lucide-react";
+import ApplicationSelector from "@/components/driver/ApplicationSelector";
+
+interface Application {
+  id: string;
+  certificate_number: string | null;
+  status: string | null;
+  created_at: string | null;
+  certification_vehicle_class: string | null;
+  certification_purpose: string | null;
+  full_name: string | null;
+  date_of_birth: string | null;
+  gender: string | null;
+  aadhaar_number: string | null;
+  current_address: string | null;
+  permanent_address: string | null;
+  highest_qualification: string | null;
+  education_verified: boolean | null;
+  licence_number: string | null;
+  issuing_rto: string | null;
+  licence_issue_date: string | null;
+  licence_expiry_date: string | null;
+  licence_type: string | null;
+  hazardous_endorsement: boolean | null;
+  vehicle_classes: string[] | null;
+  test_district: string | null;
+  test_state: string | null;
+  declaration_signed: boolean | null;
+  driving_school_id: string | null;
+  medical_lab_id: string | null;
+  driving_test_slot: string | null;
+  medical_test_slot: string | null;
+  identity_verified: boolean | null;
+  driving_test_passed: boolean | null;
+  medical_test_passed: boolean | null;
+  notes: string | null;
+}
 
 const ViewApplication = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [application, setApplication] = useState<any>(null);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
   const [drivingSchool, setDrivingSchool] = useState<any>(null);
   const [medicalLab, setMedicalLab] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchApplication = async () => {
+    const fetchApplications = async () => {
       if (!user) return;
 
       try {
@@ -43,50 +80,70 @@ const ViewApplication = () => {
           return;
         }
 
-        const { data: app, error } = await supabase
+        const { data: apps, error } = await supabase
           .from("applications")
           .select("*")
           .eq("driver_id", driver.id)
-          .maybeSingle();
+          .order("created_at", { ascending: false });
 
         if (error) throw error;
 
-        if (!app) {
+        if (!apps || apps.length === 0) {
           toast.info("No application found. Please start a new application.");
           navigate("/driver/apply");
           return;
         }
 
-        setApplication(app);
-
-        // Fetch driving school and medical lab names
-        if (app.driving_school_id) {
-          const { data: school } = await supabase
-            .from("partners")
-            .select("name, address, contact_number")
-            .eq("id", app.driving_school_id)
-            .single();
-          setDrivingSchool(school);
-        }
-
-        if (app.medical_lab_id) {
-          const { data: lab } = await supabase
-            .from("partners")
-            .select("name, address, contact_number")
-            .eq("id", app.medical_lab_id)
-            .single();
-          setMedicalLab(lab);
+        setApplications(apps);
+        
+        // Auto-select if only one application
+        if (apps.length === 1) {
+          await selectApplication(apps[0]);
         }
       } catch (error) {
-        console.error("Error fetching application:", error);
-        toast.error("Failed to load application");
+        console.error("Error fetching applications:", error);
+        toast.error("Failed to load applications");
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchApplication();
+    fetchApplications();
   }, [user, navigate]);
+
+  const selectApplication = async (app: Application) => {
+    setSelectedApplication(app);
+
+    // Fetch driving school and medical lab names
+    if (app.driving_school_id) {
+      const { data: school } = await supabase
+        .from("partners")
+        .select("name, address, contact_number")
+        .eq("id", app.driving_school_id)
+        .single();
+      setDrivingSchool(school);
+    } else {
+      setDrivingSchool(null);
+    }
+
+    if (app.medical_lab_id) {
+      const { data: lab } = await supabase
+        .from("partners")
+        .select("name, address, contact_number")
+        .eq("id", app.medical_lab_id)
+        .single();
+      setMedicalLab(lab);
+    } else {
+      setMedicalLab(null);
+    }
+  };
+
+  const handleSelectApplication = async (applicationId: string) => {
+    const app = applications.find(a => a.id === applicationId);
+    if (app) {
+      await selectApplication(app);
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -109,24 +166,65 @@ const ViewApplication = () => {
     );
   }
 
-  if (!application) {
+  // Show application selector if multiple applications and none selected
+  if (applications.length > 1 && !selectedApplication) {
+    return (
+      <div className="min-h-screen bg-background p-4 md:p-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-8">
+            <Button variant="ghost" onClick={() => navigate("/driver")} className="mb-4">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Dashboard
+            </Button>
+            <h1 className="text-3xl font-bold text-foreground">My Applications</h1>
+            <p className="text-muted-foreground mt-2">Select an application to view details</p>
+          </div>
+
+          <ApplicationSelector
+            applications={applications}
+            onSelect={handleSelectApplication}
+            title="Your Applications"
+            description="Click on an application to view its details"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (!selectedApplication) {
     return null;
   }
+
+  const application = selectedApplication;
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
-          <Button variant="ghost" onClick={() => navigate("/driver")} className="mb-4">
+          <Button 
+            variant="ghost" 
+            onClick={() => {
+              if (applications.length > 1) {
+                setSelectedApplication(null);
+              } else {
+                navigate("/driver");
+              }
+            }} 
+            className="mb-4"
+          >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
+            {applications.length > 1 ? "Back to Applications" : "Back to Dashboard"}
           </Button>
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-foreground">My Application</h1>
-              <p className="text-muted-foreground mt-2">View your verification application details</p>
+              <p className="text-muted-foreground mt-2">
+                {application.certificate_number 
+                  ? `Certificate: ${application.certificate_number}` 
+                  : `Applied on ${new Date(application.created_at || "").toLocaleDateString()}`}
+              </p>
             </div>
-            {getStatusBadge(application.status)}
+            {getStatusBadge(application.status || "pending")}
           </div>
         </div>
 
