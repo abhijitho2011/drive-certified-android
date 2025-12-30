@@ -58,7 +58,6 @@ export interface ApplicationFormData {
   testDistrict: string;
   drivingSchoolId: string;
   medicalLabId: string;
-  verificationAgentId: string;
   drivingTestSlot: string;
   medicalTestSlot: string;
 }
@@ -92,7 +91,6 @@ const initialFormData: ApplicationFormData = {
   testDistrict: "",
   drivingSchoolId: "",
   medicalLabId: "",
-  verificationAgentId: "",
   drivingTestSlot: "",
   medicalTestSlot: "",
 };
@@ -267,6 +265,38 @@ const ApplicationForm = () => {
 
     setIsSubmitting(true);
     try {
+      // Auto-assign a verification agent from the selected district
+      let verificationAgentId = null;
+      
+      // Get district and state names for finding available verification agents
+      const { data: districtData } = await supabase
+        .from("districts")
+        .select("name, state_id")
+        .eq("id", formData.testDistrict)
+        .single();
+      
+      const { data: stateData } = await supabase
+        .from("states")
+        .select("name")
+        .eq("id", formData.testState)
+        .single();
+      
+      if (districtData && stateData) {
+        // Find available verification agents in the area
+        const { data: agents } = await supabase
+          .from("partners")
+          .select("id")
+          .eq("partner_type", "verification_agent")
+          .eq("state", stateData.name)
+          .eq("district", districtData.name)
+          .eq("status", "active")
+          .limit(1);
+        
+        if (agents && agents.length > 0) {
+          verificationAgentId = agents[0].id;
+        }
+      }
+
       const applicationData = {
         driver_id: driverId,
         full_name: formData.fullName,
@@ -292,7 +322,7 @@ const ApplicationForm = () => {
         test_district: formData.testDistrict,
         driving_school_id: formData.drivingSchoolId,
         medical_lab_id: formData.medicalLabId,
-        verification_agent_id: formData.verificationAgentId || null,
+        verification_agent_id: verificationAgentId,
         driving_test_slot: formData.drivingTestSlot || null,
         medical_test_slot: formData.medicalTestSlot || null,
         status: "pending",
