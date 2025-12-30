@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { ApplicationFormData } from "@/pages/driver/ApplicationForm";
-import { Loader2, MapPin, Building2, Stethoscope, Calendar, GraduationCap } from "lucide-react";
+import { Loader2, MapPin, Building2, Stethoscope, GraduationCap, Phone, MapPinned } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface Props {
   formData: ApplicationFormData;
@@ -26,6 +26,7 @@ interface Partner {
   id: string;
   name: string;
   address: string;
+  contact_number: string;
   partner_type: string;
 }
 
@@ -93,7 +94,7 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
 
       const { data, error } = await supabase
         .from("partners")
-        .select("id, name, address, partner_type")
+        .select("id, name, address, contact_number, partner_type")
         .eq("state", state.name)
         .eq("district", district.name)
         .eq("status", "active");
@@ -110,6 +111,10 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
     fetchPartners();
   }, [formData.testDistrict, districts, states]);
 
+  const getSelectedPartner = (partnerId: string, partnerList: Partner[]) => {
+    return partnerList.find(p => p.id === partnerId);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -117,6 +122,10 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
       </div>
     );
   }
+
+  const selectedDrivingSchool = getSelectedPartner(formData.drivingSchoolId, drivingSchools);
+  const selectedMedicalLab = getSelectedPartner(formData.medicalLabId, medicalLabs);
+  const selectedVerificationAgent = getSelectedPartner(formData.verificationAgentId, verificationAgents);
 
   return (
     <div className="space-y-8">
@@ -221,26 +230,27 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
                   </div>
                   <div>
                     <p className="font-medium">{school.name}</p>
-                    <p className="text-sm text-muted-foreground">{school.address}</p>
                   </div>
                 </div>
               </div>
             ))}
 
-            {formData.drivingSchoolId && (
-              <div className="space-y-2 mt-4">
-                <Label htmlFor="drivingTestSlot" className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Preferred Driving Test Date/Time (Optional)
-                </Label>
-                <Input
-                  id="drivingTestSlot"
-                  type="datetime-local"
-                  value={formData.drivingTestSlot}
-                  onChange={(e) => updateFormData({ drivingTestSlot: e.target.value })}
-                  min={new Date().toISOString().slice(0, 16)}
-                />
-              </div>
+            {selectedDrivingSchool && (
+              <Card className="mt-4 border-primary/30 bg-primary/5">
+                <CardContent className="p-4 space-y-2">
+                  <p className="text-sm font-medium text-primary">Contact Details - The center will call you to schedule your test</p>
+                  <div className="flex items-start gap-2 text-sm">
+                    <MapPinned className="h-4 w-4 text-muted-foreground mt-0.5" />
+                    <span>{selectedDrivingSchool.address}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <a href={`tel:${selectedDrivingSchool.contact_number}`} className="text-primary hover:underline">
+                      {selectedDrivingSchool.contact_number}
+                    </a>
+                  </div>
+                </CardContent>
+              </Card>
             )}
           </div>
         )}
@@ -283,26 +293,27 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
                   </div>
                   <div>
                     <p className="font-medium">{lab.name}</p>
-                    <p className="text-sm text-muted-foreground">{lab.address}</p>
                   </div>
                 </div>
               </div>
             ))}
 
-            {formData.medicalLabId && (
-              <div className="space-y-2 mt-4">
-                <Label htmlFor="medicalTestSlot" className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Preferred Medical Test Date/Time (Optional)
-                </Label>
-                <Input
-                  id="medicalTestSlot"
-                  type="datetime-local"
-                  value={formData.medicalTestSlot}
-                  onChange={(e) => updateFormData({ medicalTestSlot: e.target.value })}
-                  min={new Date().toISOString().slice(0, 16)}
-                />
-              </div>
+            {selectedMedicalLab && (
+              <Card className="mt-4 border-primary/30 bg-primary/5">
+                <CardContent className="p-4 space-y-2">
+                  <p className="text-sm font-medium text-primary">Contact Details - The center will call you to schedule your test</p>
+                  <div className="flex items-start gap-2 text-sm">
+                    <MapPinned className="h-4 w-4 text-muted-foreground mt-0.5" />
+                    <span>{selectedMedicalLab.address}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <a href={`tel:${selectedMedicalLab.contact_number}`} className="text-primary hover:underline">
+                      {selectedMedicalLab.contact_number}
+                    </a>
+                  </div>
+                </CardContent>
+              </Card>
             )}
           </div>
         )}
@@ -345,11 +356,28 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
                   </div>
                   <div>
                     <p className="font-medium">{agent.name}</p>
-                    <p className="text-sm text-muted-foreground">{agent.address}</p>
                   </div>
                 </div>
               </div>
             ))}
+
+            {selectedVerificationAgent && (
+              <Card className="mt-4 border-primary/30 bg-primary/5">
+                <CardContent className="p-4 space-y-2">
+                  <p className="text-sm font-medium text-primary">Contact Details - The agent will call you to schedule verification</p>
+                  <div className="flex items-start gap-2 text-sm">
+                    <MapPinned className="h-4 w-4 text-muted-foreground mt-0.5" />
+                    <span>{selectedVerificationAgent.address}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <a href={`tel:${selectedVerificationAgent.contact_number}`} className="text-primary hover:underline">
+                      {selectedVerificationAgent.contact_number}
+                    </a>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
       </div>
