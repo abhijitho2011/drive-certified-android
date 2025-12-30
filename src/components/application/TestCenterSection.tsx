@@ -3,8 +3,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { ApplicationFormData } from "@/pages/driver/ApplicationForm";
-import { Loader2, MapPin, Building2, Stethoscope, GraduationCap, Phone, MapPinned } from "lucide-react";
+import { Loader2, MapPin, Building2, Stethoscope, Phone, MapPinned, Info } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Props {
   formData: ApplicationFormData;
@@ -35,7 +36,6 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
   const [districts, setDistricts] = useState<District[]>([]);
   const [drivingSchools, setDrivingSchools] = useState<Partner[]>([]);
   const [medicalLabs, setMedicalLabs] = useState<Partner[]>([]);
-  const [verificationAgents, setVerificationAgents] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -82,7 +82,6 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
       if (!formData.testDistrict) {
         setDrivingSchools([]);
         setMedicalLabs([]);
-        setVerificationAgents([]);
         return;
       }
 
@@ -102,7 +101,6 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
       if (!error && data) {
         setDrivingSchools(data.filter(p => p.partner_type === "driving_school"));
         setMedicalLabs(data.filter(p => p.partner_type === "medical_lab"));
-        setVerificationAgents(data.filter(p => p.partner_type === "verification_agent"));
       } else if (error) {
         console.error("Error fetching partners:", error);
       }
@@ -125,7 +123,6 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
 
   const selectedDrivingSchool = getSelectedPartner(formData.drivingSchoolId, drivingSchools);
   const selectedMedicalLab = getSelectedPartner(formData.medicalLabId, medicalLabs);
-  const selectedVerificationAgent = getSelectedPartner(formData.verificationAgentId, verificationAgents);
 
   return (
     <div className="space-y-8">
@@ -147,7 +144,6 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
                   testDistrict: "",
                   drivingSchoolId: "",
                   medicalLabId: "",
-                  verificationAgentId: "",
                 });
               }}
             >
@@ -173,7 +169,6 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
                   testDistrict: value,
                   drivingSchoolId: "",
                   medicalLabId: "",
-                  verificationAgentId: "",
                 });
               }}
               disabled={!formData.testState}
@@ -319,68 +314,13 @@ const TestCenterSection = ({ formData, updateFormData }: Props) => {
         )}
       </div>
 
-      {/* Verification Agent Selection */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 text-lg font-semibold">
-          <GraduationCap className="h-5 w-5 text-primary" />
-          <span>Select Education Verification Agent</span>
-        </div>
-
-        {!formData.testDistrict ? (
-          <p className="text-sm text-muted-foreground p-4 bg-muted rounded-lg">
-            Please select a state and district first to see available verification agents.
-          </p>
-        ) : verificationAgents.length === 0 ? (
-          <p className="text-sm text-muted-foreground p-4 bg-muted rounded-lg">
-            No verification agents available in the selected location. Please try a different district.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {verificationAgents.map((agent) => (
-              <div
-                key={agent.id}
-                className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                  formData.verificationAgentId === agent.id
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/50"
-                }`}
-                onClick={() => updateFormData({ verificationAgentId: agent.id })}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                    formData.verificationAgentId === agent.id ? "border-primary" : "border-muted-foreground"
-                  }`}>
-                    {formData.verificationAgentId === agent.id && (
-                      <div className="w-2 h-2 rounded-full bg-primary" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="font-medium">{agent.name}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-
-            {selectedVerificationAgent && (
-              <Card className="mt-4 border-primary/30 bg-primary/5">
-                <CardContent className="p-4 space-y-2">
-                  <p className="text-sm font-medium text-primary">Contact Details - The agent will call you to schedule verification</p>
-                  <div className="flex items-start gap-2 text-sm">
-                    <MapPinned className="h-4 w-4 text-muted-foreground mt-0.5" />
-                    <span>{selectedVerificationAgent.address}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    <a href={`tel:${selectedVerificationAgent.contact_number}`} className="text-primary hover:underline">
-                      {selectedVerificationAgent.contact_number}
-                    </a>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        )}
-      </div>
+      {/* Education Verification Info */}
+      <Alert className="border-info/30 bg-info/5">
+        <Info className="h-4 w-4 text-info" />
+        <AlertDescription className="text-sm">
+          <strong>Education Verification:</strong> A verification agent will be automatically assigned to verify your educational documents. You will be notified once the verification is complete.
+        </AlertDescription>
+      </Alert>
     </div>
   );
 };
