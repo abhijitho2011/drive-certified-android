@@ -1,24 +1,24 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
+# Common
 node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+.env
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+dist
+build
+coverage
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+
+# Render-specific: We want the repo to contain everything, but we can use .slugignore for Render optimization if needed. 
+# However, usually Render just builds what's in 'rootDir'. 
+# The user asked to "modify git", likely meaning to avoid committing heavy/unnecessary files.
+# We will keep mobile_flutter tracked but ignore its build artifacts.
+
+mobile_flutter/build/
+mobile_flutter/windows/flutter/ephemeral/
+mobile_flutter/android/.gradle

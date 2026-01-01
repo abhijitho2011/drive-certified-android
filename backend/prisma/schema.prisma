@@ -1,0 +1,620 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AppRole {
+  admin
+  driver
+  driving_school
+  medical_lab
+  company_verifier
+  verification_agent
+}
+
+enum CompanyUserRole {
+  admin
+  recruiter
+  compliance_officer
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  role      AppRole
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations (optional, depending on if we want strict linking at DB level)
+  driver      Driver?
+  partner     Partner?
+  dataUser    DataUser? @relation("DataUserUser") // Primary user for the company
+  companyUser CompanyUser?
+  userRole    UserRole?
+
+  @@map("users")
+}
+
+model Driver {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  user      User     @relation(fields: [userId], references: [id])
+  firstName String   @map("first_name")
+  lastName  String   @map("last_name")
+  phone     String
+  address   String
+  district  String
+  state     String
+  pinCode   String   @map("pin_code")
+  status    String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  applications        Application[]
+  employmentHistory   EmploymentHistory[]
+  performanceRatings  PerformanceRating[]
+  experienceCertificates ExperienceCertificate[]
+  driverEmploymentStatus DriverEmploymentStatus?
+  jobRequests         JobRequest[]
+  shortlistedBy       DriverShortlist[]
+  visibilityConsentLogs VisibilityConsentLog[]
+  ratingDisputes      RatingDispute[]
+
+  @@map("drivers")
+}
+
+model Partner {
+  id            String   @id @default(uuid())
+  userId        String?  @unique @map("user_id") // Optional because some partners might not have a direct user account yet? Or strict 1:1? Keeping loose for now.
+  user          User?    @relation(fields: [userId], references: [id])
+  name          String
+  partnerType   String   @map("partner_type") // driving_school, medical_lab, verification_agent
+  contactNumber String   @map("contact_number")
+  email         String?
+  address       String
+  district      String
+  state         String
+  gst           String?
+  status        String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations based on type
+  drivingSchoolApplications      Application[] @relation("DrivingSchool")
+  medicalLabApplications         Application[] @relation("MedicalLab")
+  verificationAgentApplications  Application[] @relation("VerificationAgent") // Note: The schema had verification_agent_id on application but referenced partners table
+
+  drivingTestResults             DrivingTestResult[] @relation("DrivingTestSchool")
+  medicalTestResults             MedicalTestResult[] @relation("MedicalTestLab")
+  trafficTestSessions            TrafficTestSession[]
+
+  @@map("partners")
+}
+
+// For discovery purposes, seems like a view in Supabase, but we can treat it as the Partner table here
+// model PartnerDiscovery { ... } 
+
+model DataUser {
+  id                          String   @id @default(uuid())
+  userId                      String?  @unique @map("user_id")
+  user                        User?    @relation("DataUserUser", fields: [userId], references: [id])
+  companyName                 String   @map("company_name")
+  contactPerson               String   @map("contact_person")
+  phone                       String
+  email                       String?
+  address                     String?
+  district                    String?
+  state                       String?
+  industryType                String?  @map("industry_type")
+  recruitmentAccess           Boolean? @map("recruitment_access")
+  recruitmentAccessApprovedAt String?  @map("recruitment_access_approved_at") // Keeping as string to match existing, but DateTime is better
+  recruitmentAccessApprovedBy String?  @map("recruitment_access_approved_by")
+  status                      String?
+  createdAt                   DateTime @default(now()) @map("created_at")
+  updatedAt                   DateTime @updatedAt @map("updated_at")
+
+  companyUsers        CompanyUser[]
+  employmentHistory   EmploymentHistory[]
+  performanceRatings  PerformanceRating[]
+  experienceCertificates ExperienceCertificate[]
+  jobPostings         JobPosting[]
+  jobRequests         JobRequest[]
+  driverShortlist     DriverShortlist[]
+  verificationLogs    VerificationLog[]
+
+  @@map("data_users")
+}
+
+model CompanyUser {
+  id          String   @id @default(uuid())
+  dataUserId  String   @map("data_user_id")
+  dataUser    DataUser @relation(fields: [dataUserId], references: [id])
+  userId      String?  @unique @map("user_id")
+  user        User?    @relation(fields: [userId], references: [id])
+  name        String
+  email       String
+  role        CompanyUserRole
+  status      String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  verificationLogs VerificationLog[]
+
+  @@map("company_users")
+}
+
+model Application {
+  id                        String   @id @default(uuid())
+  driverId                  String   @map("driver_id")
+  driver                    Driver   @relation(fields: [driverId], references: [id])
+  
+  // Personal Details
+  fullName                  String?  @map("full_name")
+  dateOfBirth               String?  @map("date_of_birth")
+  gender                    String?
+  aadhaarNumber             String?  @map("aadhaar_number")
+  currentAddress            String?  @map("current_address")
+  permanentAddress          String?  @map("permanent_address")
+  
+  // Education
+  highestQualification      String?  @map("highest_qualification")
+  educationVerified         Boolean? @map("education_verified")
+  
+  // Licence
+  licenceNumber             String?  @map("licence_number")
+  licenceType               String?  @map("licence_type")
+  issuingRto                String?  @map("issuing_rto")
+  licenceIssueDate          String?  @map("licence_issue_date")
+  licenceExpiryDate         String?  @map("licence_expiry_date")
+  vehicleClasses            String[] @map("vehicle_classes")
+  
+  // Test Assignments
+  drivingSchoolId           String?  @map("driving_school_id")
+  drivingSchool             Partner? @relation("DrivingSchool", fields: [drivingSchoolId], references: [id])
+  medicalLabId              String?  @map("medical_lab_id")
+  medicalLab                Partner? @relation("MedicalLab", fields: [medicalLabId], references: [id])
+  verificationAgentId       String?  @map("verification_agent_id")
+  verificationAgent         Partner? @relation("VerificationAgent", fields: [verificationAgentId], references: [id])
+  
+  // Test Results
+  drivingTestPassed         Boolean? @map("driving_test_passed")
+  medicalTestPassed         Boolean? @map("medical_test_passed")
+  drivingValidityDate       String?  @map("driving_validity_date")
+  medicalValidityDate       String?  @map("medical_validity_date")
+  identityVerified          Boolean? @map("identity_verified")
+  
+  // Test Slots
+  drivingTestSlot           String?  @map("driving_test_slot")
+  medicalTestSlot           String?  @map("medical_test_slot")
+  testDistrict              String?  @map("test_district")
+  testState                 String?  @map("test_state")
+  
+  // Certification
+  certificationPurpose      String?  @map("certification_purpose")
+  certificationVehicleClass String?  @map("certification_vehicle_class")
+  hazardousEndorsement      Boolean? @map("hazardous_endorsement")
+  skillGrade                String?  @map("skill_grade")
+  certificateNumber         String?  @map("certificate_number")
+  certificateStatus         String?  @map("certificate_status")
+  certificateExpiryDate     String?  @map("certificate_expiry_date")
+  adminApproved             Boolean? @map("admin_approved")
+  
+  // Declaration & Docs
+  declarationSigned         Boolean? @map("declaration_signed")
+  declarationDate           String?  @map("declaration_date")
+  documents                 Json?
+  
+  notes                     String?
+  status                    String?
+  renewalType               String?  @map("renewal_type")
+  
+  createdAt                 DateTime @default(now()) @map("created_at")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
+
+  // Relations to results
+  drivingTestResult         DrivingTestResult?
+  medicalTestResult         MedicalTestResult?
+  educationVerification     EducationVerification?
+  trafficTestSessions       TrafficTestSession[]
+  verificationLogs          VerificationLog[]
+
+  @@map("applications")
+}
+
+model DrivingTestResult {
+  id                      String   @id @default(uuid())
+  applicationId           String   @unique @map("application_id")
+  application             Application @relation(fields: [applicationId], references: [id])
+  drivingSchoolId         String   @map("driving_school_id")
+  drivingSchool           Partner  @relation("DrivingTestSchool", fields: [drivingSchoolId], references: [id])
+
+  // Identity
+  identityVerified        Boolean? @map("identity_verified")
+  identityPhotoMatch      Boolean? @map("identity_photo_match")
+  licenceVerified         Boolean? @map("licence_verified")
+  policeClearanceVerified Boolean? @map("police_clearance_verified")
+  identityStatus          String?  @map("identity_status")
+  verificationVideoUrl    String?  @map("verification_video_url")
+  
+  // Traffic Test
+  trafficTestScore        Float?   @map("traffic_test_score") // number in TS could be int or float
+  trafficTestTotal        Float?   @map("traffic_test_total")
+  trafficTestAnswers      Json?    @map("traffic_test_answers")
+  trafficTestPassed       Boolean? @map("traffic_test_passed")
+  
+  // Practical Test
+  vehicleControlScore     Float?   @map("vehicle_control_score")
+  parallelParkingScore    Float?   @map("parallel_parking_score")
+  hillDrivingScore        Float?   @map("hill_driving_score")
+  emergencyHandlingScore  Float?   @map("emergency_handling_score")
+  defensiveDrivingScore   Float?   @map("defensive_driving_score")
+  practicalTestTotal      Float?   @map("practical_test_total")
+  practicalTestPassed     Boolean? @map("practical_test_passed")
+  practicalNotes          String?  @map("practical_notes")
+  
+  // Inspection Test
+  brakeSystemScore        Float?   @map("brake_system_score")
+  engineFluidsScore       Float?   @map("engine_fluids_score")
+  tyresScore              Float?   @map("tyres_score")
+  lightsSafetyScore       Float?   @map("lights_safety_score")
+  diagnosisScore          Float?   @map("diagnosis_score")
+  inspectionTestTotal     Float?   @map("inspection_test_total")
+  inspectionTestPassed    Boolean? @map("inspection_test_passed")
+  inspectionNotes         String?  @map("inspection_notes")
+  
+  // Results
+  skillGrade              String?  @map("skill_grade")
+  totalScore              Float?   @map("total_score")
+  overallPassed           Boolean? @map("overall_passed")
+  testedBy                String?  @map("tested_by")
+  testDate                String?  @map("test_date")
+  submittedAt             String?  @map("submitted_at")
+  createdAt               DateTime @default(now()) @map("created_at")
+
+  @@map("driving_test_results")
+}
+
+model MedicalTestResult {
+  id                  String   @id @default(uuid())
+  applicationId       String   @unique @map("application_id")
+  application         Application @relation(fields: [applicationId], references: [id])
+  medicalLabId        String   @map("medical_lab_id")
+  medicalLab          Partner  @relation("MedicalTestLab", fields: [medicalLabId], references: [id])
+  
+  // Health
+  bloodPressureSystolic Float? @map("blood_pressure_systolic")
+  bloodPressureDiastolic Float? @map("blood_pressure_diastolic")
+  bloodPressureStatus   String? @map("blood_pressure_status")
+  bmi                   Float?
+  bmiStatus             String? @map("bmi_status")
+  heartRate             Float?  @map("heart_rate")
+  heartRateStatus       String? @map("heart_rate_status")
+  visionLeft            String? @map("vision_left")
+  visionRight           String? @map("vision_right")
+  visionStatus          String? @map("vision_status")
+  hearingStatus         String? @map("hearing_status")
+  colorBlindness        Boolean? @map("color_blindness")
+  healthScreeningPassed Boolean? @map("health_screening_passed")
+  healthNotes           String?  @map("health_notes")
+  
+  // Drugs
+  cannabisResult        String? @map("cannabis_result")
+  opioidsResult         String? @map("opioids_result")
+  cocaineResult         String? @map("cocaine_result")
+  amphetaminesResult    String? @map("amphetamines_result")
+  methamphetamineResult String? @map("methamphetamine_result")
+  mdmaResult            String? @map("mdma_result")
+  benzodiazepinesResult String? @map("benzodiazepines_result")
+  barbituratesResult    String? @map("barbiturates_result")
+  drugScreeningPassed   Boolean? @map("drug_screening_passed")
+  drugNotes             String?  @map("drug_notes")
+  drugTestDate          String?  @map("drug_test_date")
+  
+  // Alcohol
+  alcoholLevel          Float?   @map("alcohol_level")
+  alcoholResult         String?  @map("alcohol_result")
+  alcoholTestMethod     String?  @map("alcohol_test_method")
+  
+  // Fitness
+  fitnessStatus         String?  @map("fitness_status")
+  fitnessValidityMonths Float?   @map("fitness_validity_months")
+  
+  testedBy              String?  @map("tested_by")
+  testDate              String?  @map("test_date")
+  submittedAt           String?  @map("submitted_at")
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  @@map("medical_test_results")
+}
+
+model EducationVerification {
+  id                  String   @id @default(uuid())
+  applicationId       String   @unique @map("application_id")
+  application         Application @relation(fields: [applicationId], references: [id])
+  verificationAgentId String   @map("verification_agent_id")
+  // Note: relation to Partner for verificationAgentId is implied but not strictly enforced here due to potential circular dependencies or just plain ID storage. 
+  // Ideally verificationAgentId would point to Partner.id
+  
+  status              String?
+  verifiedAt          String?  @map("verified_at")
+  notes               String?
+  rejectionReason     String?  @map("rejection_reason")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("education_verifications")
+}
+
+model EmploymentHistory {
+  id                String   @id @default(uuid())
+  driverId          String   @map("driver_id")
+  driver            Driver   @relation(fields: [driverId], references: [id])
+  employerId        String   @map("employer_id")
+  employer          DataUser @relation(fields: [employerId], references: [id])
+  
+  startDate         String   @map("start_date")
+  endDate           String?  @map("end_date")
+  position          String?
+  vehicleClass      String?  @map("vehicle_class")
+  status            String?
+  terminationReason String?  @map("termination_reason")
+  
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  performanceRatings     PerformanceRating[]
+  experienceCertificates ExperienceCertificate[]
+
+  @@map("employment_history")
+}
+
+model PerformanceRating {
+  id                    String   @id @default(uuid())
+  driverId              String   @map("driver_id")
+  driver                Driver   @relation(fields: [driverId], references: [id])
+  employerId            String   @map("employer_id")
+  employer              DataUser @relation(fields: [employerId], references: [id])
+  employmentHistoryId   String   @map("employment_history_id")
+  employmentHistory     EmploymentHistory @relation(fields: [employmentHistoryId], references: [id])
+  
+  overallRating         Float?   @map("overall_rating")
+  vehicleHandlingRating Float?   @map("vehicle_handling_rating")
+  behaviourRating       Float?   @map("behaviour_rating")
+  safetyRating          Float?   @map("safety_rating")
+  punctualityRating     Float?   @map("punctuality_rating")
+  remarks               String?
+  
+  createdAt             DateTime @default(now()) @map("created_at")
+  
+  ratingDisputes        RatingDispute[]
+
+  @@map("performance_ratings")
+}
+
+model ExperienceCertificate {
+  id                       String   @id @default(uuid())
+  driverId                 String   @map("driver_id")
+  driver                   Driver   @relation(fields: [driverId], references: [id])
+  employerId               String   @map("employer_id")
+  employer                 DataUser @relation(fields: [employerId], references: [id])
+  employmentHistoryId      String   @map("employment_history_id")
+  employmentHistory        EmploymentHistory @relation(fields: [employmentHistoryId], references: [id])
+  
+  certificateNumber        String   @map("certificate_number")
+  vehicleClass             String   @map("vehicle_class")
+  employmentDurationMonths Float?   @map("employment_duration_months")
+  performanceSummary       String?  @map("performance_summary")
+  issueDate                String?  @map("issue_date")
+  verificationId           String   @map("verification_id")
+  
+  createdAt                DateTime @default(now()) @map("created_at")
+
+  @@map("experience_certificates")
+}
+
+model DriverEmploymentStatus {
+  id                   String   @id @default(uuid())
+  driverId             String   @unique @map("driver_id")
+  driver               Driver   @relation(fields: [driverId], references: [id])
+  
+  employmentStatus     String?  @map("employment_status")
+  availability         String?
+  isVisibleToEmployers Boolean? @map("is_visible_to_employers")
+  preferredWorkTypes   String[] @map("preferred_work_types")
+  preferredLocations   String[] @map("preferred_locations")
+  expectedSalaryMin    Float?   @map("expected_salary_min")
+  expectedSalaryMax    Float?   @map("expected_salary_max")
+  
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+  visibilityUpdatedAt  String?  @map("visibility_updated_at")
+
+  @@map("driver_employment_status")
+}
+
+model JobPosting {
+  id                    String   @id @default(uuid())
+  employerId            String   @map("employer_id")
+  employer              DataUser @relation(fields: [employerId], references: [id])
+  
+  title                 String
+  description           String?
+  location              String?
+  workType              String?  @map("work_type")
+  availabilityRequired  String?  @map("availability_required")
+  vehicleClassRequired  String[] @map("vehicle_class_required")
+  skillGradeRequired    String[] @map("skill_grade_required")
+  experienceYearsMin    Float?   @map("experience_years_min")
+  salaryMin             Float?   @map("salary_min")
+  salaryMax             Float?   @map("salary_max")
+  isActive              Boolean? @map("is_active")
+  expiresAt             String?  @map("expires_at")
+  
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("job_postings")
+}
+
+model JobRequest {
+  id                   String   @id @default(uuid())
+  employerId           String   @map("employer_id")
+  employer             DataUser @relation(fields: [employerId], references: [id])
+  driverId             String   @map("driver_id")
+  driver               Driver   @relation(fields: [driverId], references: [id])
+  
+  jobTitle             String   @map("job_title")
+  jobDescription       String?  @map("job_description")
+  location             String?
+  workType             String?  @map("work_type")
+  vehicleClassRequired String?  @map("vehicle_class_required")
+  salaryOffered        Float?   @map("salary_offered")
+  status               String?
+  driverResponseAt     String?  @map("driver_response_at")
+  
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@map("job_requests")
+}
+
+model DriverShortlist {
+  id          String   @id @default(uuid())
+  employerId  String   @map("employer_id")
+  employer    DataUser @relation(fields: [employerId], references: [id])
+  driverId    String   @map("driver_id")
+  driver      Driver   @relation(fields: [driverId], references: [id])
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("driver_shortlist")
+}
+
+model VerificationLog {
+  id                String   @id @default(uuid())
+  dataUserId        String   @map("data_user_id")
+  dataUser          DataUser @relation(fields: [dataUserId], references: [id])
+  companyUserId     String?  @map("company_user_id")
+  companyUser       CompanyUser? @relation(fields: [companyUserId], references: [id])
+  
+  searchType        String   @map("search_type")
+  searchQuery       String   @map("search_query")
+  resultStatus      String   @map("result_status")
+  applicationId     String?  @map("application_id")
+  application       Application? @relation(fields: [applicationId], references: [id])
+  certificateNumber String?  @map("certificate_number")
+  driverName        String?  @map("driver_name")
+  verifiedByName    String   @map("verified_by_name")
+  verifiedByRole    String?  @map("verified_by_role")
+  resultDetails     Json?    @map("result_details")
+  ipAddress         String?  @map("ip_address")
+  userAgent         String?  @map("user_agent")
+  
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@map("verification_logs")
+}
+
+model VisibilityConsentLog {
+  id        String   @id @default(uuid())
+  driverId  String   @map("driver_id")
+  driver    Driver   @relation(fields: [driverId], references: [id])
+  action    String
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("visibility_consent_logs")
+}
+
+model RatingDispute {
+  id                  String   @id @default(uuid())
+  performanceRatingId String   @map("performance_rating_id")
+  performanceRating   PerformanceRating @relation(fields: [performanceRatingId], references: [id])
+  driverId            String   @map("driver_id")
+  driver              Driver   @relation(fields: [driverId], references: [id])
+  
+  reason              String
+  status              String?
+  resolutionNotes     String?  @map("resolution_notes")
+  resolvedBy          String?  @map("resolved_by")
+  resolvedAt          String?  @map("resolved_at")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  @@map("rating_disputes")
+}
+
+model State {
+  id        String   @id @default(uuid())
+  name      String
+  code      String?
+  status    String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  districts District[]
+
+  @@map("states")
+}
+
+model District {
+  id        String   @id @default(uuid())
+  stateId   String   @map("state_id")
+  state     State    @relation(fields: [stateId], references: [id])
+  name      String
+  code      String?
+  status    String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("districts")
+}
+
+model TrafficLawQuestion {
+  id              String   @id @default(uuid())
+  question        String
+  optionA         String   @map("option_a")
+  optionB         String   @map("option_b")
+  optionC         String   @map("option_c")
+  optionD         String   @map("option_d")
+  correctAnswer   String   @map("correct_answer")
+  category        String
+  isHazardousOnly Boolean? @map("is_hazardous_only")
+  imageUrl        String?  @map("image_url")
+  status          String?
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("traffic_law_questions")
+}
+
+model TrafficTestSession {
+  id              String   @id @default(uuid())
+  applicationId   String   @map("application_id")
+  application     Application @relation(fields: [applicationId], references: [id])
+  drivingSchoolId String   @map("driving_school_id")
+  drivingSchool   Partner  @relation(fields: [drivingSchoolId], references: [id])
+  testUserId      String   @map("test_user_id")
+  secretKey       String   @map("secret_key")
+  answers         Json?
+  score           Float?
+  totalQuestions  Float?   @map("total_questions")
+  status          String?
+  startedAt       String?  @map("started_at")
+  completedAt     String?  @map("completed_at")
+  expiresAt       String?  @map("expires_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("traffic_test_sessions")
+}
+
+model UserRole {
+  id     String @id @default(uuid())
+  userId String @map("user_id") @unique
+  user   User   @relation(fields: [userId], references: [id])
+  role   AppRole
+
+  @@map("user_roles")
+}
