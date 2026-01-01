@@ -57,6 +57,9 @@ export class AuthService {
                     lastName: data.lastName,
                     phone: data.phone || '',
                     address: '',
+                    district: '',
+                    state: '',
+                    pinCode: '',
                 },
             });
         }
