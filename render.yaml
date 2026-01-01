@@ -1,6 +1,7 @@
 services:
   - type: web
     name: motract-backend
+    plan: free
     env: node
     rootDir: backend
     buildCommand: npm install && npm run build
