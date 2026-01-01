@@ -7,16 +7,23 @@ class ApiService {
   final Dio _dio = Dio();
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-  // Android Emulator: 10.0.2.2, Others (Windows/iOS/Web): localhost
-  static String get baseUrl {
+  // Production Backend URL (Render)
+  static const String baseUrl = 'https://motract-backend.onrender.com';
+
+  /* 
+  // Local Development URLs
+  static String get localUrl {
     if (Platform.isAndroid) return 'http://10.0.2.2:3000';
     return 'http://localhost:3000';
   }
+  */
 
   ApiService() {
     _dio.options.baseUrl = baseUrl;
-    _dio.options.connectTimeout = const Duration(seconds: 5);
-    _dio.options.receiveTimeout = const Duration(seconds: 3);
+    _dio.options.connectTimeout = const Duration(
+      seconds: 10,
+    ); // Increased timeout for prod
+    _dio.options.receiveTimeout = const Duration(seconds: 10);
 
     _dio.interceptors.add(
       InterceptorsWrapper(
